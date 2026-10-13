@@ -73,6 +73,8 @@ async function fixture(t) {
 			('bob-draft', 'bob', 'team', 'outbound', 'team@ex.com', 'x@y.z', 'bob draft', 'draft', NULL, 4),
 			('alice-draft', 'alice', 'team', 'outbound', 'team@ex.com', 'x@y.z', 'alice draft', 'draft', NULL, 5),
 			('trashed', 'admin', 'team', 'inbound', 'x@y.z', 'team@ex.com', 'old', 'trash', NULL, 6);
+		-- Every account here has finished TOTP enrollment (mandatory since Phase 6b).
+		UPDATE users SET totp_enabled = 1;
 	`);
 	const reads = [];
 	const env = {

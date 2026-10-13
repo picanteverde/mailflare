@@ -62,7 +62,7 @@ async function main() {
 		const cookie = request.headers.cookie ?? "";
 		const token = getSessionTokenFromRequest(new Request("http://localhost/", { headers: { cookie } }));
 		void getUserFromSession(env, token).then((user) => {
-			if (!user || user.disabled) {
+			if (!user || user.disabled || !user.totpEnabled) {
 				socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
 				socket.destroy();
 				return;

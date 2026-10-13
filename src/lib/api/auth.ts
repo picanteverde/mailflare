@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/cookies";
+import { getCurrentUser, getCurrentUserForEnrollment } from "@/lib/auth/cookies";
 import { authenticateApiKeyValue, hasScope } from "@/lib/api/key-auth";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 
@@ -20,10 +20,14 @@ export const requireScope = hasScope;
  * a 500; this returns a proper 401 response instead so unauthenticated callers get the right
  * status.
  */
-export async function requireSessionUser(env: CloudflareEnv, request: Request) {
-	const user = await getCurrentUser(env, request);
+export async function requireSessionUser(env: CloudflareEnv, request: Request, options: { allowTotpEnrollment?: boolean } = {}) {
+	const user = options.allowTotpEnrollment ? await getCurrentUserForEnrollment(env, request) : await getCurrentUser(env, request);
 	if (!user) {
-		return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) } as const;
+		// picanteverde fork: a signed-in account that still has to enroll TOTP gets a code the UI can act on.
+		const pending = !options.allowTotpEnrollment && (await getCurrentUserForEnrollment(env, request));
+		return pending
+			? ({ user: null, error: NextResponse.json({ error: "Set up two-factor authentication first", code: "totp_enrollment_required" }, { status: 403 }) } as const)
+			: ({ user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) } as const);
 	}
 	return { user, error: null } as const;
 }

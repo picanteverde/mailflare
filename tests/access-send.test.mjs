@@ -55,6 +55,8 @@ async function fixture(t) {
 			('g2', 'sales', 'sender', 1, 1, 1),
 			('g3', 'sales', 'gone', 1, 1, 1),
 			('g4', 'ceo', 'reader', 1, 0, 1);
+		-- Every account here has finished TOTP enrollment (mandatory since Phase 6b).
+		UPDATE users SET totp_enabled = 1;
 	`);
 	const sent = [];
 	const env = { DB: database, MAILFLARE_RUNTIME: "node", EMAIL: { send: async (message) => { sent.push(message); return { messageId: `<m${sent.length}@ex.com>` }; } } };

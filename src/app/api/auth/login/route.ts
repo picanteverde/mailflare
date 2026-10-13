@@ -14,6 +14,7 @@ import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { recordAuthActivity } from "@/lib/auth/activity";
 import { createLoginChallenge } from "@/lib/auth/login-challenge";
+import { backoffWait, clearBackoff, recordBackoffFailure } from "@/lib/auth/backoff";
 
 export async function POST(request: Request) {
 	const env = getEnv();
@@ -38,11 +39,18 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: "Verification failed. Please try again." }, { status: 400 });
 	}
 
+	// picanteverde fork: per-login, per-client backoff, checked before the password is.
+	const wait = await backoffWait(env, "password", parsed.data.email, request);
+	if (wait > 0) {
+		return NextResponse.json({ error: `Too many failed attempts. Try again in ${wait}s.`, code: "backoff" }, { status: 429, headers: { "Retry-After": String(wait) } });
+	}
 	const db = getDb(env);
 	const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
 	if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
+		await recordBackoffFailure(env, "password", parsed.data.email, request);
 		return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
 	}
+	await clearBackoff(env, "password", parsed.data.email, request);
 	if (user.disabled) {
 		return NextResponse.json({ error: "Account disabled" }, { status: 403 });
 	}

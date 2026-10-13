@@ -647,6 +647,18 @@ export const loginChallenges = sqliteTable("login_challenges", {
 		.$defaultFn(() => new Date()),
 });
 
+/** picanteverde fork (0065): per-login, per-client sign-in backoff. Never a lock. */
+export const loginBackoff = sqliteTable(
+	"login_backoff",
+	{
+		key: text("key").primaryKey(),
+		failures: integer("failures").notNull().default(0),
+		nextAllowedAt: integer("next_allowed_at", { mode: "timestamp" }),
+		updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+	},
+	(t) => [index("login_backoff_updated_idx").on(t.updatedAt)],
+);
+
 export const auditLogs = sqliteTable(
 	"audit_logs",
 	{
@@ -910,6 +922,7 @@ export const schema = {
 	driveUploadParts,
 	driveShares,
 	auditLogs,
+	loginBackoff,
 	backupSettings,
 	backups,
 	appSettings,

@@ -9,7 +9,7 @@ import { mfaEnrollSchema } from "@/lib/validators";
 /** Re-checks the password, then returns a new secret with its QR code. */
 export async function POST(request: Request) {
 	const env = getEnv();
-	const auth = await requireSessionUser(env, request);
+	const auth = await requireSessionUser(env, request, { allowTotpEnrollment: true });
 	if (auth.error) return auth.error;
 	const parsed = mfaEnrollSchema.safeParse(await readJsonBody(request, 16 * 1024).catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Enter your password" }, { status: 400 });

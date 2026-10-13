@@ -28,6 +28,8 @@ export async function authenticateApiKeyValue(env: CloudflareEnv, key: string): 
 		if (!user || user.disabled) continue;
 		// picanteverde fork: keys follow their account; a revocation kills keys created before it.
 		if (isRevokedAt(user.sessionsRevokedAt, candidate.createdAt)) continue;
+		// TOTP is mandatory: an account that has not enrolled (or was reset) has no working keys.
+		if (!user.totpEnabled) continue;
 
 		const stale = new Date(Date.now() - LAST_USED_WRITE_INTERVAL_MS);
 		await db

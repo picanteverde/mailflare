@@ -13,6 +13,7 @@ import { getUserFromSession } from "./src/lib/auth/session";
 import { getSessionTokenFromRequest } from "./src/lib/realtime/utils";
 import { inboundAttachmentLimitReasonFromRaw } from "./src/lib/email/inbound-attachments";
 import { hasValidSessionMutationOrigin } from "./src/lib/auth/origin";
+import { totpEnrollmentGate } from "./src/lib/auth/totp-gate";
 import {
 	getAccountForwardingDestination,
 	MAILFLARE_FORWARDED_HEADER,
@@ -37,7 +38,8 @@ export default {
 			}
 
 			const user = await getUserFromSession(env, getSessionTokenFromRequest(request));
-			if (!user || user.disabled) {
+			// picanteverde fork: no realtime before TOTP enrollment (access design §4).
+			if (!user || user.disabled || !user.totpEnabled) {
 				return new Response("Unauthorized", { status: 401 });
 			}
 
@@ -47,6 +49,8 @@ export default {
 			return hub.fetch(hubRequest);
 		}
 
+		const totpGate = await totpEnrollmentGate(env, request);
+		if (totpGate) return totpGate;
 		return vinextHandler.fetch(request, env, ctx);
 	},
 

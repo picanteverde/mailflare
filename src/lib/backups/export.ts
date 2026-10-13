@@ -30,6 +30,8 @@ const INTERNAL_TABLES = [
 	// Exporting it would make restore fail, since the triggers recreate these
 	// primary keys before the table's own rows would be inserted.
 	"jmap_mailbox_revisions",
+	// picanteverde fork: sign-in backoff counters are transient and must not survive a restore.
+	"login_backoff",
 ];
 
 /**

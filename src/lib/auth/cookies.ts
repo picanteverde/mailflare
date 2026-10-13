@@ -8,7 +8,7 @@ function getBearerToken(request?: Request): string | undefined {
 	return token || undefined;
 }
 
-export async function getCurrentUser(env: CloudflareEnv, request?: Request) {
+async function getSessionAccount(env: CloudflareEnv, request?: Request) {
 	const bearerToken = getBearerToken(request);
 	if (bearerToken) {
 		const user = await getUserFromSession(env, bearerToken);
@@ -19,6 +19,21 @@ export async function getCurrentUser(env: CloudflareEnv, request?: Request) {
 	const token = jar.get(SESSION_COOKIE)?.value;
 	const user = await getUserFromSession(env, token);
 	return user?.disabled ? null : user;
+}
+
+/**
+ * The signed-in account. picanteverde fork: TOTP is mandatory (access design §4), so an
+ * account that has not finished enrolling counts as signed out here, on the server, for
+ * every route. Only the enrollment routes and /api/auth/me use getCurrentUserForEnrollment.
+ */
+export async function getCurrentUser(env: CloudflareEnv, request?: Request) {
+	const user = await getSessionAccount(env, request);
+	return user?.totpEnabled ? user : null;
+}
+
+/** The session's account even before TOTP enrollment. Only for enrollment and /api/auth/me. */
+export async function getCurrentUserForEnrollment(env: CloudflareEnv, request?: Request) {
+	return getSessionAccount(env, request);
 }
 
 export async function requireUser(env: CloudflareEnv, request?: Request) {

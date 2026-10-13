@@ -9,7 +9,7 @@ import { mfaConfirmSchema } from "@/lib/validators";
 /** Proves the authenticator has the secret; turns MFA on and returns recovery codes once. */
 export async function POST(request: Request) {
 	const env = getEnv();
-	const auth = await requireSessionUser(env, request);
+	const auth = await requireSessionUser(env, request, { allowTotpEnrollment: true });
 	if (auth.error) return auth.error;
 	const parsed = mfaConfirmSchema.safeParse(await readJsonBody(request, 16 * 1024).catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: "Enter the 6-digit code" }, { status: 400 });

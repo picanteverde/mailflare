@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/cookies";
+import { getCurrentUserForEnrollment } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { hasPrimaryDomain, userHasAccessibleMailboxes } from "@/lib/user";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
@@ -7,7 +7,7 @@ import { hasCloudflareCredentials, isNodeRuntime } from "@/lib/runtime";
 
 export async function GET(request: Request) {
 	const env = getEnv();
-	const user = await getCurrentUser(env, request);
+	const user = await getCurrentUserForEnrollment(env, request);
 	if (!user) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 	const entitlements = await getLicenseEntitlements(env);
 	try {
 		[hasMailboxes, isSetup] = await Promise.all([
-			userHasAccessibleMailboxes(env, user),
+			user.totpEnabled ? userHasAccessibleMailboxes(env, user) : false,
 			hasPrimaryDomain(env),
 		]);
 	} catch {
@@ -33,6 +33,8 @@ export async function GET(request: Request) {
 			forwardingEmail: user.forwardingEmail,
 			canForwardEmail: entitlements.canForwardEmail,
 			role: user.role,
+			// picanteverde fork: until this is false, every other route answers 403 totp_enrollment_required.
+			totpEnrollmentRequired: !user.totpEnabled,
 			isPrimaryAdmin: user.isPrimaryAdmin,
 			canManageMailboxes: user.canManageMailboxes,
 			canManageDomains: user.canManageDomains,

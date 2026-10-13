@@ -6,8 +6,13 @@ import { verifyPassword } from "@/lib/auth/password";
 import { disableMfa, verifySecondFactor } from "@/lib/auth/mfa";
 import { mfaDisableSchema } from "@/lib/validators";
 
+const MFA_REQUIRED = true;
+
 /** Turning MFA off needs both factors, so a stolen session alone cannot do it. */
 export async function POST(request: Request) {
+	// picanteverde fork: TOTP is mandatory for every account (access design §4). An admin can
+	// reset it (DELETE /api/accounts/:id/totp), which forces a new enrollment.
+	if (MFA_REQUIRED) return NextResponse.json({ error: "Two-factor authentication is required on this server", code: "totp_required" }, { status: 403 });
 	const env = getEnv();
 	const auth = await requireSessionUser(env, request);
 	if (auth.error) return auth.error;

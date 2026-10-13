@@ -5,7 +5,7 @@ import { getMfaStatus } from "@/lib/auth/mfa";
 
 export async function GET(request: Request) {
 	const env = getEnv();
-	const auth = await requireSessionUser(env, request);
+	const auth = await requireSessionUser(env, request, { allowTotpEnrollment: true });
 	if (auth.error) return auth.error;
 	return NextResponse.json(await getMfaStatus(env, auth.user));
 }

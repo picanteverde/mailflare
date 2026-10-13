@@ -12,6 +12,7 @@ import { readJsonBody } from "@/lib/http/request";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { recordAuthActivity } from "@/lib/auth/activity";
 import { consumeLoginChallenge, getLoginChallengeUserId } from "@/lib/auth/login-challenge";
+import { backoffWait, clearBackoff, recordBackoffFailure } from "@/lib/auth/backoff";
 import { verifySecondFactor } from "@/lib/auth/mfa";
 
 /** Second step of a login: trade a challenge plus a TOTP or recovery code for a session. */
@@ -42,10 +43,17 @@ export async function POST(request: Request) {
 	if (!user || user.disabled) {
 		return NextResponse.json({ error: "Account disabled" }, { status: 403 });
 	}
+	// picanteverde fork: codes get the same backoff as passwords (keyed by account and client).
+	const wait = await backoffWait(env, "totp", user.id, request);
+	if (wait > 0) {
+		return NextResponse.json({ error: `Too many failed attempts. Try again in ${wait}s.`, code: "backoff" }, { status: 429, headers: { "Retry-After": String(wait) } });
+	}
 	const method = await verifySecondFactor(env, user, parsed.data.code);
 	if (!method) {
+		await recordBackoffFailure(env, "totp", user.id, request);
 		return NextResponse.json({ error: "That code did not match" }, { status: 401 });
 	}
+	await clearBackoff(env, "totp", user.id, request);
 
 	await consumeLoginChallenge(env, parsed.data.challengeToken);
 	const token = await createSession(env, user.id);

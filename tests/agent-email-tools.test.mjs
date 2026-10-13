@@ -46,7 +46,7 @@ test("assistant reads mail, creates an editable reply draft, and invokes tools t
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(process.cwd(), "drizzle", "migrations"));
 	database.db.exec(`
-		INSERT INTO users (id, email, password_hash, name, created_at) VALUES ('user-1', 'owner@example.com', 'hash', 'Owner', 1);
+		INSERT INTO users (id, email, password_hash, name, totp_enabled, created_at) VALUES ('user-1', 'owner@example.com', 'hash', 'Owner', 1, 1);
 		INSERT INTO domains (id, user_id, hostname, zone_id, status, created_at) VALUES ('domain-1', 'user-1', 'example.com', 'zone-1', 'active', 1);
 		INSERT INTO mailboxes (id, user_id, domain_id, local_part, created_at) VALUES ('mailbox-1', 'user-1', 'domain-1', 'owner', 1);
 		-- picanteverde fork: ownership grants nothing; access comes from the grant (as 0061 backfills).

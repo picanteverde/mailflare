@@ -1,4 +1,4 @@
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, count, eq, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { loginChallenges, mfaRecoveryCodes, users } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
@@ -138,7 +138,17 @@ export async function updateManagedAccount(env: CloudflareEnv, actorId: string, 
 	if (roleChange) set.role = patch.role;
 	if (disableChange) set.disabled = patch.disabled;
 	if (patch.password) set.passwordHash = hashPassword(patch.password);
-	if (Object.keys(set).length > 0) await db.update(users).set(set).where(eq(users.id, target.id));
+	if (Object.keys(set).length > 0) {
+		// When this write removes an enabled admin, make it conditional on another enabled admin
+		// still existing, so two concurrent requests can't remove the last two (QA, 6a review).
+		const keepsAnAdmin = sql`(SELECT count(*) FROM users WHERE role = 'admin' AND disabled = 0 AND id <> ${target.id}) >= 1`;
+		const changed = await db
+			.update(users)
+			.set(set)
+			.where(losesAdmin ? and(eq(users.id, target.id), keepsAnAdmin) : eq(users.id, target.id))
+			.returning({ id: users.id });
+		if (changed.length === 0) throw new AccountAdminError("This is the last enabled admin", 409, "last_admin");
+	}
 
 	const audit = (action: string, metadata?: Record<string, unknown>) =>
 		createAuditLog(env, { actorUserId: actor.id, targetUserId: target.id, action, metadata });
