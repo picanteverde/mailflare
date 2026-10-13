@@ -49,6 +49,12 @@ The route-by-route inventory (Phase 4) lists every handler with the row above th
 - `messages.user_id` stays as recorded data (inbound: technical owner; outbound/drafts: author) and **never** decides access.
 - Settings that hang off the owner today (contacts, spam settings, forwarding, webhooks, auto-reply sender, trash retention, agent reviewer) move to mailbox scope, edited by admins.
 - `ensurePersonalMailbox`, which silently recreates a personal mailbox on `GET /api/mailboxes`, is removed.
+- Settings that used to follow the owner, as built (Phase 8b):
+  - **Auto-reply** is the mailbox's own setting and is sent by the mailbox itself (`sendMailboxSystemEmail`), not by an account, so it needs no grant. Only internal code can mark a send as system: the mark is a module-private `WeakSet`, so no request body can reach it, and the From must still be the mailbox's own address.
+  - **Account-level forwarding is off.** It followed the technical owner, which is the primary admin for every mailbox, so it would forward all mail out and bypass grants and audit. Per-mailbox forwarding is an admin-only routing rule.
+  - **Webhooks** stay primary-admin-only (instance level) and now write `webhook.create` / `webhook.update` / `webhook.delete` audit rows. Secrets are never logged.
+  - **Spam protection and trash retention** read the owner's (the primary admin's) setting, so they are effectively instance settings. Retention is admin-only (Phase 4).
+  - **The agent reviewer** must hold receive+send on the mailbox (`canSendOnBehalf` = send, which implies receive). The AI is off in this deployment.
 
 ## 4. Sessions and credentials
 

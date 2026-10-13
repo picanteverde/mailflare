@@ -13,6 +13,7 @@ const ACCESS_ACTIONS = [
 	"credentials.password_reset", "credentials.totp_reset", "session.revoke",
 	"grant.set", "grant.revoke", "mailbox.create",
 	"backup.download", "backup.restore",
+	"webhook.create", "webhook.update", "webhook.delete",
 ];
 
 export async function GET(request: Request) {

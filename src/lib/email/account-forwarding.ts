@@ -6,11 +6,16 @@ import { resolveInboundAddress } from "@/lib/email/routing";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
 
 export const MAILFLARE_FORWARDED_HEADER = "X-Mailflare-Forwarded";
+const FORK_ACCOUNT_FORWARDING_DISABLED = true;
 
 export async function getAccountForwardingDestination(
 	env: CloudflareEnv,
 	recipient: string,
 ): Promise<string | null> {
+	// picanteverde fork: account-level forwarding is off. It followed the mailbox's technical
+	// owner (the primary admin for every mailbox), so it would forward all mail out, bypassing
+	// grants and the audit log. Per-mailbox forwarding is an admin-only routing rule instead.
+	if (FORK_ACCOUNT_FORWARDING_DISABLED) return null;
 	if (!(await getLicenseEntitlements(env)).canForwardEmail) return null;
 	const db = getDb(env);
 	const decision = await resolveInboundAddress(db, recipient);

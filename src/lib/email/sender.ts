@@ -13,6 +13,8 @@ export async function getAuthorizedSenderAddress(
 		from: string;
 		mailboxId?: string | null;
 	},
+	/** Internal only (never from a request): the mailbox itself sends, e.g. its auto-reply. */
+	options: { system?: boolean } = {},
 ): Promise<{ fromAddr: string; mailboxId: string }> {
 	if (!input.mailboxId) throw new Error("Mailbox is required");
 
@@ -41,7 +43,7 @@ export async function getAuthorizedSenderAddress(
 
 	// picanteverde fork: the send grant is the only rule (access design §2). There is no
 	// "X on behalf of Y" path: every send goes out as the mailbox, under its own name.
-	if (!(await can(db, actor, mailbox.id, "send"))) {
+	if (!options.system && !(await can(db, actor, mailbox.id, "send"))) {
 		throw new Error("You do not have permission to send from this mailbox");
 	}
 

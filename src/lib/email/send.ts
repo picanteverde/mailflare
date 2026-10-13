@@ -74,7 +74,7 @@ export async function sendEmail(
 	input: SendEmailInput,
 ): Promise<{ messageId: string; scheduled?: boolean }> {
 	const db = getDb(env);
-	const sender = await getAuthorizedSenderAddress(env, input);
+	const sender = await getAuthorizedSenderAddress(env, input, { system: systemSends.has(input) });
 	const attachments = input.attachments ?? [];
 	validateAttachments(attachments);
 	const maxAttachmentMb = await getOutboundAttachmentMaxMb(env);
@@ -306,6 +306,20 @@ function assertNoIdentityHeaders(headers: Record<string, string> | undefined) {
 		const lower = name.trim().toLowerCase();
 		if (IDENTITY_HEADERS.has(lower) || lower.startsWith("resent-") || lower.startsWith("arc-")) throw new Error(`The ${name} header cannot be set`);
 	}
+}
+
+/*
+ * picanteverde fork: mail the mailbox sends by itself (its auto-reply) needs no account's
+ * send grant: the mailbox's technical owner holds none (access design §1). The mark is a
+ * module-private WeakSet of input objects, so nothing in a request body can claim it; the
+ * From must still be one of the mailbox's own addresses. Never use it for user-initiated mail.
+ */
+const systemSends = new WeakSet<object>();
+
+export function sendMailboxSystemEmail(env: CloudflareEnv, input: SendEmailInput) {
+	if (input.scheduledAt) throw new Error("System mail is sent immediately");
+	systemSends.add(input);
+	return sendEmail(env, input);
 }
 
 export async function processOutboundQueue(

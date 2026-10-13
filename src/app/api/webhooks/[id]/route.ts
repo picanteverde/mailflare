@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { getEnv } from "@/lib/cloudflare";
+import { createAuditLog } from "@/lib/mailboxes/audit";
 import { NextResponse } from "next/server";
 import { webhooks } from "@/db/schema";
 import { parseWebhookEvents } from "@/lib/email/webhooks";
@@ -52,6 +54,7 @@ export async function PATCH(request: Request, { params }: WebhookRouteParams) {
 	}
 
 	await loaded.db.update(webhooks).set(updates).where(eq(webhooks.id, id));
+	await createAuditLog(getEnv(), { actorUserId: loaded.user.id, action: "webhook.update", metadata: { webhookId: id, fields: Object.keys(updates).filter((field) => field !== "secret"), secretRotated: !!secret, ...(updates.url ? { url: updates.url } : {}) } });
 	return NextResponse.json({ ok: true, ...(secret ? { secret } : {}) });
 }
 
@@ -63,5 +66,6 @@ export async function DELETE(request: Request, { params }: WebhookRouteParams) {
 
 	// Deliveries cascade with the webhook row.
 	await loaded.db.delete(webhooks).where(eq(webhooks.id, id));
+	await createAuditLog(getEnv(), { actorUserId: loaded.user.id, action: "webhook.delete", metadata: { webhookId: id } });
 	return NextResponse.json({ ok: true });
 }
