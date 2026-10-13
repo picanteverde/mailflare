@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domains, mailboxes, users } from "@/db/schema";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { can } from "@/lib/mailboxes/access";
 import { formatEmailAddress, getEmailAddress } from "@/lib/email/address";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import { resolveMailboxDisplayName } from "@/lib/profile/identity-utils";
@@ -39,11 +39,14 @@ export async function getAuthorizedSenderAddress(
 	const [actor] = await db.select().from(users).where(eq(users.id, input.userId)).limit(1);
 	if (!actor || actor.disabled) throw new Error("Sender account not found");
 
-	const access = await getMailboxAccessLevel(db, actor, mailbox.id);
-	if (!access?.canSendOnBehalf) {
+	// picanteverde fork: the send grant is the only rule (access design §2). There is no
+	// "X on behalf of Y" path: every send goes out as the mailbox, under its own name.
+	if (!(await can(db, actor, mailbox.id, "send"))) {
 		throw new Error("You do not have permission to send from this mailbox");
 	}
 
+	// The From must be one of this mailbox's own addresses or aliases; an alias of another
+	// mailbox, or any other address, is refused. The display name always comes from the mailbox.
 	const requestedAddress = getEmailAddress(input.from);
 	const permittedAddresses = await getMailboxDomainAddresses(db, mailbox);
 	if (!permittedAddresses.includes(requestedAddress.toLowerCase())) {
@@ -53,17 +56,8 @@ export async function getAuthorizedSenderAddress(
 	// The primary mailbox sends under the account name; every other mailbox
 	// sends under its own.
 	const senderName = resolveMailboxDisplayName(mailbox, mailbox.ownerEmail, mailbox.ownerName);
-
-	if (access.canSendAs) {
-		return {
-			fromAddr: formatEmailAddress(senderAddress, senderName),
-			mailboxId: mailbox.id,
-		};
-	}
-
-	const mailboxName = senderName || senderAddress;
 	return {
-		fromAddr: formatEmailAddress(senderAddress, `${actor.name} on behalf of ${mailboxName}`),
+		fromAddr: formatEmailAddress(senderAddress, senderName),
 		mailboxId: mailbox.id,
 	};
 }

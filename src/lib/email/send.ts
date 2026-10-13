@@ -100,6 +100,7 @@ export async function sendEmail(
 	const references = Array.isArray(input.references)
 		? input.references.map((id) => normalizeMessageId(id)).filter((id): id is string => !!id)
 		: parseMessageIdList(input.references);
+	assertNoIdentityHeaders(input.headers);
 	const headers: Record<string, string> = { ...input.headers };
 	if (inReplyTo) headers["In-Reply-To"] = `<${inReplyTo}>`;
 	if (references.length > 0) headers.References = formatMessageIdHeader(references);
@@ -247,7 +248,8 @@ async function deliverEmail(env: CloudflareEnv, delivery: PreparedDelivery): Pro
 			mailboxId,
 			messageId,
 			action: "email.send",
-			metadata: { to: toAddr, cc: cc.length ? joinEmailAddressList(cc) : undefined, subject: input.subject },
+			// picanteverde fork: ids only. Subjects, bodies and recipients are never logged (design §7).
+			metadata: { mailboxId, messageId },
 		});
 	} catch (err) {
 		const error = err instanceof Error ? err.message : "Send failed";
@@ -286,6 +288,19 @@ async function enqueueScheduledDelivery(
 		},
 		{ delaySeconds },
 	);
+}
+
+/**
+ * picanteverde fork: callers may add protocol headers (auto-reply markers, threading),
+ * never identity headers. From comes only from the authorized mailbox, and Sender,
+ * Reply-To, Return-Path or Resent-* could otherwise impersonate another local mailbox.
+ */
+const IDENTITY_HEADERS = new Set(["from", "sender", "reply-to", "return-path", "envelope-from", "x-original-from"]);
+function assertNoIdentityHeaders(headers: Record<string, string> | undefined) {
+	for (const name of Object.keys(headers ?? {})) {
+		const lower = name.trim().toLowerCase();
+		if (IDENTITY_HEADERS.has(lower) || lower.startsWith("resent-")) throw new Error(`The ${name} header cannot be set`);
+	}
 }
 
 export async function processOutboundQueue(

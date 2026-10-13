@@ -25,6 +25,7 @@ export async function GET(request: Request) {
 				? { displayName: user.name, hasAvatar: !!user.avatarKey }
 				: {}),
 			senderAddresses: await getMailboxDomainAddresses(db, mailbox),
+			canSend: !!mailbox.canSend,
 		}))),
 		canCreateShared: user.role === "admin" && entitlements.canShareMailboxes,
 	});

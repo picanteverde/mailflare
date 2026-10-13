@@ -84,9 +84,12 @@ export function ComposeForm({
 	const fileDragDepth = useRef(0);
 	const previousSignature = useRef("");
 
+	// picanteverde fork: only mailboxes the account may send from are offered; the server
+	// refuses the rest anyway. A reply in a receive-only mailbox starts with no From.
+	const sendableMailboxes = useMemo(() => mailboxes.filter((mailbox) => mailbox.canSend !== false), [mailboxes]);
 	useEffect(() => {
-		if (!selectedMailbox && mailboxes.length === 1) setSelectedMailbox(mailboxes[0]);
-	}, [mailboxes, selectedMailbox, setSelectedMailbox]);
+		if (!selectedMailbox && sendableMailboxes.length === 1) setSelectedMailbox(sendableMailboxes[0]);
+	}, [sendableMailboxes, selectedMailbox, setSelectedMailbox]);
 
 	useEffect(() => {
 		let active = true;
@@ -97,19 +100,19 @@ export function ComposeForm({
 	}, []);
 
 	const senderAddresses = useMemo(() => {
-		if (!selectedMailbox) return [];
+		if (!selectedMailbox || selectedMailbox.canSend === false) return [];
 		return selectedMailbox.senderAddresses?.length
 			? selectedMailbox.senderAddresses
 			: [`${selectedMailbox.localPart}@${selectedMailbox.hostname}`];
 	}, [selectedMailbox]);
 	const senderOptions = useMemo(
-		() => mailboxes.flatMap((mailbox) => {
+		() => sendableMailboxes.flatMap((mailbox) => {
 			const addresses = mailbox.senderAddresses?.length
 				? mailbox.senderAddresses
 				: [`${mailbox.localPart}@${mailbox.hostname}`];
 			return addresses.map((address) => ({ mailbox, address }));
 		}),
-		[mailboxes],
+		[sendableMailboxes],
 	);
 	const fromAddr = selectedMailbox && selectedFrom
 		? formatEmailAddress(selectedFrom, selectedMailbox.displayName)

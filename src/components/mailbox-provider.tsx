@@ -37,6 +37,8 @@ export type MailboxOption = {
 	permission?: "read_only" | "send_as" | "send_on_behalf" | "full_access";
 	isPrimary?: boolean;
 	senderAddresses?: string[];
+	/** picanteverde fork: the account's send grant; compose only offers mailboxes with it. */
+	canSend?: boolean;
 };
 
 type MailboxContextValue = {

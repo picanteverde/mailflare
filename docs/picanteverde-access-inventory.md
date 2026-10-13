@@ -27,7 +27,8 @@ Helpers (all in `src/lib/mailboxes/access.ts`, no cache, default deny):
 | /api/messages/empty | POST | A | `getAdminMailboxAccess` | ✔ | ✔ |
 | /api/drafts | GET/POST | S; author | `mailboxScope(send ids)` + author; POST via `getAuthorizedSenderAddress` | | ✔ |
 | /api/drafts/[id] (+ attachments) | GET/PATCH/DELETE | author + S | `userOwnsDraft` (async, re-checks S) | | ✔ |
-| /api/send | POST | S | `getAuthorizedSenderAddress` (`canSend`) + `userOwnsDraft` | | ✔ |
+| /api/send | POST | S | `getAuthorizedSenderAddress`: `can(send)`, From must be this mailbox's own address or alias, display name from the mailbox, no on-behalf path; `userOwnsDraft` | | ✔ |
+| `sendEmail` (every send path: web, v1, drafts, scheduled, JMAP, calendar, auto-reply, agent) | S; no identity headers | `getAuthorizedSenderAddress` + `assertNoIdentityHeaders` (From/Sender/Reply-To/Return-Path/Resent-*); audit row has ids only | | ✔ |
 | /api/templates (+[id]) | GET/POST/DELETE | author only | `messages.user_id` = author (templates are personal, not mailbox data) | | ✔ |
 | /api/export/messages | GET | R on the mailbox | `getMailboxAccessLevel`; drafts excluded | | ✔ |
 | /api/import/messages, /api/import/imap | POST | A | `getAdminMailboxAccess` | ✔ | ✔ |
