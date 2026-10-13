@@ -7,8 +7,10 @@
 	"compatibility_date": "2026-05-20",
 	"workers_dev": false,
 	"preview_urls": false,
-	// Every 10 minutes: continues today's pass until it is done, then idles until the next UTC day.
-	"triggers": { "crons": ["*/10 * * * *"] },
+	// No cron of its own (QA): Cloudflare never invoked it, and mailflare's */5 cron steps the copy
+	// over the R2_COPY service binding instead. An empty list also clears any registered schedule,
+	// so two runs can never work on _state/pass.json at once.
+	"triggers": { "crons": [] },
 	"vars": { "BATCH": "200" },
 	"r2_buckets": [
 		{ "binding": "SOURCE", "bucket_name": "mailflare-raw" },

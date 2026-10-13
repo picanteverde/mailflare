@@ -18,7 +18,8 @@ export class CopyEntrypoint extends WorkerEntrypoint<Env> {
 }
 
 export default {
-	// Kept so the copy also runs on its own if Cloudflare starts invoking this cron.
+	// Not scheduled (wrangler.jsonc has no crons); kept only so `wrangler dev --test-scheduled` can
+	// exercise a step locally.
 	async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
 		ctx.waitUntil(runCopy(env).then(() => undefined));
 	},
