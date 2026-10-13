@@ -295,11 +295,16 @@ async function enqueueScheduledDelivery(
  * never identity headers. From comes only from the authorized mailbox, and Sender,
  * Reply-To, Return-Path or Resent-* could otherwise impersonate another local mailbox.
  */
-const IDENTITY_HEADERS = new Set(["from", "sender", "reply-to", "return-path", "envelope-from", "x-original-from"]);
+// Recipients come only from the to/cc/bcc fields (no hidden extra recipients), and
+// authentication results are the receiving side's to state, never the sender's.
+const IDENTITY_HEADERS = new Set([
+	"from", "sender", "reply-to", "return-path", "envelope-from", "x-original-from",
+	"to", "cc", "bcc", "dkim-signature", "authentication-results", "received-spf",
+]);
 function assertNoIdentityHeaders(headers: Record<string, string> | undefined) {
 	for (const name of Object.keys(headers ?? {})) {
 		const lower = name.trim().toLowerCase();
-		if (IDENTITY_HEADERS.has(lower) || lower.startsWith("resent-")) throw new Error(`The ${name} header cannot be set`);
+		if (IDENTITY_HEADERS.has(lower) || lower.startsWith("resent-") || lower.startsWith("arc-")) throw new Error(`The ${name} header cannot be set`);
 	}
 }
 

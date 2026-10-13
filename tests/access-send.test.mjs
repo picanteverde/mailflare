@@ -104,7 +104,7 @@ test("only an account with the send grant can send, as the mailbox, from its own
 test("a disabled account cannot send, and callers cannot set identity headers", async (t) => {
 	const f = await fixture(t);
 	await assert.rejects(m.sendEmail(f.env, { userId: "gone", mailboxId: "sales", from: "sales@ex.com", to: "x@y.z", subject: "s", text: "t" }), /Sender account not found/);
-	for (const name of ["Reply-To", "Sender", "From", "Return-Path", "Resent-From", "reply-to"]) {
+	for (const name of ["Reply-To", "Sender", "From", "Return-Path", "Resent-From", "reply-to", "To", "Cc", "BCC", "DKIM-Signature", "ARC-Seal", "ARC-Authentication-Results", "Authentication-Results", "Received-SPF"]) {
 		await assert.rejects(
 			m.sendEmail(f.env, { userId: "sender", mailboxId: "sales", from: "sales@ex.com", to: "x@y.z", subject: "s", text: "t", headers: { [name]: "ceo@ex.com" } }),
 			/header cannot be set/,
