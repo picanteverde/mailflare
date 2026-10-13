@@ -7,7 +7,7 @@ import { parseWebhookEvents } from "@/lib/email/webhooks";
 import { summariseDeliveryStats } from "./utils";
 import { requireSessionUser } from "@/lib/api/auth";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
-import { createAuditLog } from "@/lib/mailboxes/audit";
+import { createAuditLog, webhookHost } from "@/lib/mailboxes/audit";
 import { newId } from "@/lib/ids";
 import { webhookSchema } from "@/lib/validators";
 import { readJsonBody } from "@/lib/http/request";
@@ -86,7 +86,8 @@ export async function POST(request: Request) {
 	});
 
 	// picanteverde fork: a webhook can carry every mailbox's events off the server; audit it (never the secret).
-	await createAuditLog(env, { actorUserId: user.id, action: "webhook.create", metadata: { webhookId: id, url: parsed.data.url, events: parsed.data.events } });
+	// Hosts and ids only: many webhook URLs are themselves the credential (Slack/Discord paths, ?token=).
+	await createAuditLog(env, { actorUserId: user.id, action: "webhook.create", metadata: { webhookId: id, host: webhookHost(parsed.data.url), events: parsed.data.events } });
 	// The signing secret is shown once, at creation time, and never returned again.
 	return NextResponse.json({ id, url: parsed.data.url, secret, events: parsed.data.events });
 }

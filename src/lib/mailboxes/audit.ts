@@ -15,3 +15,16 @@ export async function createAuditLog(env: CloudflareEnv, input: AuditLogInput): 
 		metadata: input.metadata ? JSON.stringify(input.metadata) : null,
 	});
 }
+
+/**
+ * picanteverde fork: the audit log is append-only forever (0062), so its metadata carries hosts
+ * and ids only, never full URLs, paths, query strings, tokens or secrets. Many webhook URLs are
+ * the credential themselves (Slack/Discord paths, ?token=).
+ */
+export function webhookHost(url: string): string {
+	try {
+		return new URL(url).host;
+	} catch {
+		return "invalid-url";
+	}
+}

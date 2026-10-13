@@ -96,3 +96,19 @@ test("webhook create, update and delete are audited, never with the secret", asy
 	assert.deepEqual(JSON.parse(rows[1].metadata).secretRotated, true);
 	assert.equal((await m.createWebhook(f.req("alice", "/api/webhooks", "POST", { url: "https://x.z", events: ["message.inbound"] }))).status, 403);
 });
+
+test("webhook audit rows carry the host only, never a secret path or query", async (t) => {
+	const f = await fixture(t);
+	const secretUrl = "https://hooks.slack.example/services/T000SECRETPATH/B111/xoxsecretvalue?token=querysecret123";
+	const created = await (await m.createWebhook(f.req("admin", "/api/webhooks", "POST", { url: secretUrl, events: ["message.inbound"] }))).json();
+	const params = { params: Promise.resolve({ id: created.id }) };
+	const rotatedUrl = "https://discord.example/api/webhooks/12345/anothertokenvalue?x=othersecret";
+	assert.equal((await m.updateWebhook(f.req("admin", `/api/webhooks/${created.id}`, "PATCH", { url: rotatedUrl }), params)).status, 200);
+	const metadata = f.database.db.prepare("SELECT group_concat(metadata, ' ') AS all_ FROM audit_logs WHERE action LIKE 'webhook.%'").get().all_;
+	for (const secret of ["SECRETPATH", "xoxsecretvalue", "querysecret123", "services", "anothertokenvalue", "othersecret", "/api/webhooks"]) {
+		assert.doesNotMatch(metadata, new RegExp(secret), secret);
+	}
+	assert.match(metadata, /hooks\.slack\.example/);
+	assert.match(metadata, /discord\.example/);
+	assert.match(metadata, /"urlChanged":true/);
+});

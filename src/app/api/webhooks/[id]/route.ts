@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
-import { createAuditLog } from "@/lib/mailboxes/audit";
+import { createAuditLog, webhookHost } from "@/lib/mailboxes/audit";
 import { NextResponse } from "next/server";
 import { webhooks } from "@/db/schema";
 import { parseWebhookEvents } from "@/lib/email/webhooks";
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: WebhookRouteParams) {
 	}
 
 	await loaded.db.update(webhooks).set(updates).where(eq(webhooks.id, id));
-	await createAuditLog(getEnv(), { actorUserId: loaded.user.id, action: "webhook.update", metadata: { webhookId: id, fields: Object.keys(updates).filter((field) => field !== "secret"), secretRotated: !!secret, ...(updates.url ? { url: updates.url } : {}) } });
+	await createAuditLog(getEnv(), { actorUserId: loaded.user.id, action: "webhook.update", metadata: { webhookId: id, fields: Object.keys(updates).filter((field) => field !== "secret"), secretRotated: !!secret, ...(updates.url ? { host: webhookHost(updates.url), urlChanged: true } : {}) } });
 	return NextResponse.json({ ok: true, ...(secret ? { secret } : {}) });
 }
 
