@@ -143,14 +143,11 @@ export const mailboxAccess = sqliteTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
-		permission: text("permission", { enum: ["read_only", "send_as", "send_on_behalf", "full_access"] })
-			.notNull()
-			.default("read_only"),
 		createdByUserId: text("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
-		// picanteverde fork: the only columns access decisions read (0061). `permission` above is legacy.
+		// picanteverde fork: the grant (0061). The legacy permission level was dropped in 0066.
 		canReceive: integer("can_receive", { mode: "boolean" }).notNull().default(false),
 		canSend: integer("can_send", { mode: "boolean" }).notNull().default(false),
 		grantedByUserId: text("granted_by_user_id").references(() => users.id, { onDelete: "set null" }),

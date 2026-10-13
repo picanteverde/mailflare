@@ -56,15 +56,15 @@ before(async () => {
 			('m1', 'admin', 'd', 'hello', 'personal', 0, 1),
 			('m2', 'admin', 'd', 'old', 'shared', 1, 1),
 			('m3', 'dave', 'd', 'dave', 'personal', 0, 1);
-		INSERT INTO mailbox_access (id, mailbox_id, user_id, permission, can_receive, can_send, created_at) VALUES
-			('g1', 'm1', 'admin', 'full_access', 1, 1, 1),
-			('g2', 'm1', 'alice', 'full_access', 1, 0, 1),
-			('g3', 'm1', 'bob', 'read_only', 1, 1, 1),
-			('g4', 'm2', 'bob', 'full_access', 1, 1, 1),
-			('g5', 'm1', 'carol', 'full_access', 1, 1, 1),
-			('g6', 'm1', 'eve', 'full_access', 0, 0, 1),
-			('g7', 'm1', 'sam', 'send_as', 0, 1, 1),
-			('g8', 'm1', 'zed', 'full_access', 1, 1, 1);
+		INSERT INTO mailbox_access (id, mailbox_id, user_id, can_receive, can_send, created_at) VALUES
+			('g1', 'm1', 'admin', 1, 1, 1),
+			('g2', 'm1', 'alice', 1, 0, 1),
+			('g3', 'm1', 'bob', 1, 1, 1),
+			('g4', 'm2', 'bob', 1, 1, 1),
+			('g5', 'm1', 'carol', 1, 1, 1),
+			('g6', 'm1', 'eve', 0, 0, 1),
+			('g7', 'm1', 'sam', 0, 1, 1),
+			('g8', 'm1', 'zed', 1, 1, 1);
 	`);
 	db = createDb(database);
 });

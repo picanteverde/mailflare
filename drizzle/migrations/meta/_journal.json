@@ -407,6 +407,13 @@
       "when": 1788850806023,
       "tag": "0065_login_backoff",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "6",
+      "when": 1788850807023,
+      "tag": "0066_drop_legacy_access",
+      "breakpoints": true
     }
   ]
 }

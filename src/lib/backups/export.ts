@@ -1,6 +1,7 @@
 import type { BackupTableGroupId, DatabaseBackupDocument, DatabaseBackupTable, DatabaseRecord } from "./types";
 import { mergeLegacyMessageBodies } from "./utils";
 import { newId } from "@/lib/ids";
+import { CONTACT_BACKFILL_SQL, OWNER_GRANT_BACKFILL_SQL, upgradeLegacyGrantRow } from "./fork-upgrade";
 import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
 
 const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "shared_attachment_links", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings", "email_templates", "calendar_events", "booking_events", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "mailbox_agent_settings", "agent_conversations", "agent_chat_messages", "agent_jobs", "agent_draft_metadata", "agent_send_approvals", "mcp_key_mailboxes", 'ai_usage', "push_subscriptions", "drive_items", "drive_shares", "drive_upload_parts"];
@@ -92,17 +93,27 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	const bookingTable = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'booking_events'").first<{ name: string }>();
 	if (!bookingTable && document.tables.booking_events?.length) throw new Error("Apply pending database migrations before restoring booking events.");
 	const restoreTables = BACKUP_TABLES.filter((table) => (table !== "shared_attachment_links" || sharedLinksTable) && (table !== "booking_events" || bookingTable));
-	const userColumns = new Set((await db.prepare("PRAGMA table_info(users)").all<{ name: string }>()).results.map((column) => column.name));
-	const bookingColumns = bookingTable ? new Set((await db.prepare("PRAGMA table_info(booking_events)").all<{ name: string }>()).results.map((column) => column.name)) : null;
+	// picanteverde fork: every table's rows are cut to the columns it has now, so a backup from
+	// an older schema (e.g. with mailbox_access.permission) still restores.
+	const columnsByTable = new Map<string, Set<string>>();
+	for (const table of restoreTables) {
+		columnsByTable.set(table, new Set((await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>()).results.map((column) => column.name)));
+	}
+	// A backup from before the access rework: map legacy grants now, replay the backfills below.
+	const preForkGrants = (document.tables.mailbox_access ?? []).some((row) => !("can_receive" in row));
+	const preForkContacts = (document.tables.contacts ?? []).some((row) => !("mailbox_id" in row));
+	if (preForkGrants) document.tables.mailbox_access = (document.tables.mailbox_access ?? []).map(upgradeLegacyGrantRow);
 	// Build every statement first, so an invalid record fails before anything is deleted.
 	const statements: D1PreparedStatement[] = [];
 	for (const table of [...restoreTables].reverse()) {
 		if (table !== "audit_logs") statements.push(db.prepare(`DELETE FROM ${table}`));
 	}
 	for (const table of restoreTables) {
-		const columns = table === "users" ? userColumns : table === "booking_events" ? bookingColumns : null;
+		const columns = columnsByTable.get(table) ?? null;
 		for (const row of document.tables[table] ?? []) statements.push(createInsertStatement(db, table, row, columns, table === "audit_logs"));
 	}
+	if (preForkGrants) for (const sql of OWNER_GRANT_BACKFILL_SQL) statements.push(db.prepare(sql));
+	if (preForkContacts) for (const sql of CONTACT_BACKFILL_SQL) statements.push(db.prepare(sql));
 	statements.push(
 		db
 			.prepare("INSERT INTO audit_logs (id, actor_user_id, action, metadata, created_at) VALUES (?, ?, 'backup.restore', ?, ?)")

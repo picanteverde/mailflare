@@ -12,7 +12,7 @@ Base: upstream `hieunc229/mailflare@2e24bfd` plus the fork commits on branch `pi
   - `can_send`: send, reply and forward as the mailbox's addresses and aliases.
 - **Default deny:** no row, or both flags 0, means no access. A disabled account or mailbox means no access, whatever the flags say.
 - **Admins** (`users.role = 'admin'`) manage accounts, mailboxes and grants. They get **no implicit mail access**. To read a mailbox, an admin grants themselves, and that grant is audited like any other.
-- **Single source of truth:** `can()` reads only `can_receive` and `can_send`. The legacy `permission` column stays for compatibility, is never read for decisions, and is dropped in a later migration.
+- **Single source of truth:** `can()` reads only `can_receive` and `can_send`. The legacy `permission` column was dropped in 0066.
 
 ## 2. Action map
 
@@ -119,6 +119,8 @@ An admin resetting **another admin's** password or TOTP (`target_is_admin: true`
 ## 8. Release gate
 
 Phases 1–9 go only to the fork and to a **staging worker** with synthetic seed data. Production `mailflare` is touched only in Phase 10, after the Phase 9 test matrix passes and QA signs off. Phase 6 removes the license gates, so shipping it before Phase 4 closes the bypasses would hand new accounts the leaky routes.
+
+Restoring a backup taken before the fork maps its legacy grants and replays the 0061/0063 backfills inside the restore batch (`src/lib/backups/fork-upgrade.ts`), so it comes back with the same access as migrating would.
 
 Before migrating production in Phase 10, count and list its `mailbox_access` rows, and count `contacts` and `routing_rules` (0063 backfills contacts per mailbox from them). Upstream ignored them unless `type='shared'` with a Team license, but after 0061 every row grants R (or R+S). Any unexpected row is reviewed with picanteverde first.
 

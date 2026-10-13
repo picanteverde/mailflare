@@ -234,7 +234,6 @@ export function creatorGrant(mailboxId: string, userId: string, grantedByUserId:
 		userId,
 		canReceive: true,
 		canSend: true,
-		permission: "full_access" as const,
 		createdByUserId: grantedByUserId,
 		grantedByUserId,
 		grantedAt: now,

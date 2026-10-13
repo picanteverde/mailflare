@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // on a database shaped like today's.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDirectory = join(root, "drizzle/migrations");
-const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql", "0063_contacts_per_mailbox.sql", "0064_sessions_revoked_at.sql", "0065_login_backoff.sql"];
+const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql", "0063_contacts_per_mailbox.sql", "0064_sessions_revoked_at.sql", "0065_login_backoff.sql", "0066_drop_legacy_access.sql"];
 const scratch = mkdtempSync(join(root, "node_modules", "mailflare-access-migration-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
@@ -18,6 +18,7 @@ await build({
 		contents: `
 			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
 			export { applyMigrations } from "./server/runtime/migrate.ts";
+			export { exportDatabaseRecords, restoreDatabaseRecords } from "./src/lib/backups/export.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "access-migration-test-entry.ts",
@@ -31,7 +32,7 @@ await build({
 	packages: "external",
 	logLevel: "silent",
 });
-const { SqliteDatabase, applyMigrations } = await import(pathToFileURL(join(scratch, "entry.mjs")).href);
+const { SqliteDatabase, applyMigrations, exportDatabaseRecords, restoreDatabaseRecords } = await import(pathToFileURL(join(scratch, "entry.mjs")).href);
 
 // A copy of the migrations directory that stops at 0060.
 const before0061 = join(scratch, "migrations");
@@ -41,7 +42,7 @@ for (const name of FORK) rmSync(join(before0061, name));
 const COUNTED = ["users", "domains", "mailboxes", "messages", "audit_logs", "sessions"];
 const counts = (db) => Object.fromEntries(COUNTED.map((table) => [table, db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
 const grant = (db, mailbox, user) =>
-	db.prepare("SELECT can_receive AS r, can_send AS s, permission FROM mailbox_access WHERE mailbox_id = ? AND user_id = ?").get(mailbox, user);
+	db.prepare("SELECT can_receive AS r, can_send AS s FROM mailbox_access WHERE mailbox_id = ? AND user_id = ?").get(mailbox, user);
 
 /** Today's production shape: one primary admin owning everything, plus legacy access rows of every level. */
 function seed(db) {
@@ -103,10 +104,12 @@ async function migrate(t, apply) {
 function assertGrants(db, beforeCounts) {
 	assert.deepEqual(counts(db), beforeCounts, "no user, mailbox, message, session or audit row is lost");
 	// Legacy levels map onto receive/send.
-	assert.deepEqual({ ...grant(db, "team", "ro") }, { r: 1, s: 0, permission: "read_only" });
-	assert.deepEqual({ ...grant(db, "team", "sa") }, { r: 1, s: 1, permission: "send_as" });
-	assert.deepEqual({ ...grant(db, "team", "sob") }, { r: 1, s: 1, permission: "send_on_behalf" });
-	assert.deepEqual({ ...grant(db, "team", "fa") }, { r: 1, s: 1, permission: "full_access" });
+	assert.deepEqual({ ...grant(db, "team", "ro") }, { r: 1, s: 0 }, "read_only");
+	assert.deepEqual({ ...grant(db, "team", "sa") }, { r: 1, s: 1 }, "send_as");
+	assert.deepEqual({ ...grant(db, "team", "sob") }, { r: 1, s: 1 }, "send_on_behalf");
+	assert.deepEqual({ ...grant(db, "team", "fa") }, { r: 1, s: 1 }, "full_access");
+	// 0066: the legacy level is gone from the schema.
+	assert.ok(!db.prepare("SELECT name FROM pragma_table_info('mailbox_access')").all().some((column) => column.name === "permission"));
 	// Owners keep everything they own: new rows for the admin, an upgraded row for fa.
 	assert.deepEqual({ r: grant(db, "inbox", "admin").r, s: grant(db, "inbox", "admin").s }, { r: 1, s: 1 });
 	assert.deepEqual({ r: grant(db, "team", "admin").r, s: grant(db, "team", "admin").s }, { r: 1, s: 1 });
@@ -144,8 +147,8 @@ function assertContactsPerMailbox(db) {
 	assert.deepEqual(scoped("own"), [], "fa's mailbox exchanged no mail with these addresses");
 	// Whole-address matching: jimbob@x.com and bob@x.com.evil are not bob@x.com.
 	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE email = 'bob@x.com' AND mailbox_id IS NOT NULL").get().n, 0);
-	// Legacy owner-wide rows stay (never read); unmatched ones get no mailbox copy.
-	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 6);
+	// 0066: the owner-wide rows are gone; unmatched contacts got no mailbox copy.
+	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 0);
 	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE email = 'ghost@z.z' AND mailbox_id IS NOT NULL").get().n, 0);
 	const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'contacts'").all().map((row) => row.name);
 	assert.ok(indexes.includes("contacts_mailbox_email_idx"));
@@ -201,4 +204,37 @@ test("the fork migrations come last and are listed in the journal", () => {
 	assert.deepEqual(files.slice(-FORK.length), FORK);
 	const journal = JSON.parse(readFileSync(join(migrationsDirectory, "meta/_journal.json"), "utf8"));
 	assert.deepEqual(journal.entries.slice(-FORK.length).map((entry) => `${entry.tag}.sql`), FORK);
+});
+
+test("a backup taken before the fork restores with the same access and contacts as migrating", async (t) => {
+	// The pre-fork database and its backup (old shape: permission levels, owner-wide contacts).
+	const old = new SqliteDatabase(":memory:");
+	t.after(() => old.db.close());
+	await applyMigrations(old, before0061);
+	seed(old.db);
+	const backup = await exportDatabaseRecords(old);
+	assert.match(new TextDecoder().decode(backup), /"permission":"read_only"/);
+
+	// Migrating that same data through 0061-0066.
+	const migrated = new SqliteDatabase(":memory:");
+	t.after(() => migrated.db.close());
+	await applyMigrations(migrated, before0061);
+	seed(migrated.db);
+	for (const name of FORK) cpSync(join(migrationsDirectory, name), join(before0061, name));
+	t.after(() => { for (const name of FORK) rmSync(join(before0061, name)); });
+	await applyMigrations(migrated, before0061);
+
+	// Restoring the old backup onto a fresh, final-schema database.
+	const restored = new SqliteDatabase(":memory:");
+	t.after(() => restored.db.close());
+	await applyMigrations(restored, migrationsDirectory);
+	await restoreDatabaseRecords(restored, backup.buffer.slice(backup.byteOffset, backup.byteOffset + backup.byteLength), { actorUserId: null });
+
+	const grants = (db) => db.prepare("SELECT mailbox_id, user_id, can_receive, can_send FROM mailbox_access ORDER BY mailbox_id, user_id").all().map((row) => ({ ...row }));
+	const contacts = (db) => db.prepare("SELECT id, mailbox_id, email, display_name, blocked, last_seen_at FROM contacts ORDER BY id").all().map((row) => ({ ...row }));
+	assert.deepEqual(grants(restored.db), grants(migrated.db));
+	assert.deepEqual(contacts(restored.db), contacts(migrated.db));
+	assert.equal(grants(restored.db).length, 7);
+	assert.ok(contacts(restored.db).length > 0);
+	assert.equal(restored.db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 0);
 });

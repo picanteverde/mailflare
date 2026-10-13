@@ -136,8 +136,8 @@ export async function applyGrantChanges(env: CloudflareEnv, actorId: string, cha
 			const values = { canReceive: change.receive, canSend: change.send, grantedByUserId: actor.id, grantedAt: now };
 			statements.push(
 				db.insert(mailboxAccess)
-					.values({ id: newId("mac"), mailboxId: change.mailboxId, userId: change.userId, permission: change.send ? "send_as" : "read_only", createdByUserId: actor.id, createdAt: now, ...values })
-					.onConflictDoUpdate({ target: [mailboxAccess.mailboxId, mailboxAccess.userId], set: { ...values, permission: change.send ? "send_as" : "read_only" } }),
+					.values({ id: newId("mac"), mailboxId: change.mailboxId, userId: change.userId, createdByUserId: actor.id, createdAt: now, ...values })
+					.onConflictDoUpdate({ target: [mailboxAccess.mailboxId, mailboxAccess.userId], set: values }),
 			);
 		}
 		statements.push(db.insert(auditLogs).values({
