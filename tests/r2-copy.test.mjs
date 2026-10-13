@@ -112,6 +112,26 @@ test("the state file stays small: errors are capped", async () => {
 	assert.ok(!("copiedKeys" in state));
 });
 
+test("a failed state write once does not wedge the pass on a locked manifest key (QA)", async () => {
+	const { env, BACKUP } = setup(40);
+	env.BATCH = "10";
+	await runCopy(env, day1);
+	const realPut = BACKUP.put.bind(BACKUP);
+	let failOnce = true;
+	BACKUP.put = async (key, body, options) => {
+		if (key === "_state/pass.json" && failOnce) { failOnce = false; throw new Error("transient"); }
+		return realPut(key, body, options);
+	};
+	await assert.rejects(runCopy(env, day1));
+	// New mail lands inside the page being retried, so the retry copies something and writes a
+	// manifest with the same run number as the one already written under the lock.
+	await env.SOURCE.put("mail/0010a.eml", "arrived between runs");
+	let state;
+	for (let run = 0; run < 10; run += 1) state = await runCopy(env, day1);
+	assert.equal(state.done, true);
+	assert.equal([...BACKUP.objects.keys()].filter((key) => key.startsWith("raw/")).length, 41);
+});
+
 test("errors are recorded in the summary and do not stop the pass", async () => {
 	const { env, BACKUP } = setup(10);
 	const realGet = env.SOURCE.get;

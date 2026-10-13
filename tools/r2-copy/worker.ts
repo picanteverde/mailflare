@@ -97,7 +97,9 @@ export async function runCopy(env: Env, now = new Date()): Promise<State> {
 		}
 	}
 	if (copiedKeys.length > 0) {
-		await env.BACKUP.put(`manifests/${state.day}/${String(state.run).padStart(5, "0")}.json`, JSON.stringify({ day: state.day, run: state.run, at: now.toISOString(), keys: copiedKeys }), { httpMetadata: { contentType: "application/json" } });
+		// Unique per invocation (QA): if the state write after this fails, the next run reuses the
+		// same run number, and a locked manifest key must never collide and wedge the pass.
+		await env.BACKUP.put(`manifests/${state.day}/${String(state.run).padStart(5, "0")}-${now.getTime()}-${crypto.randomUUID().slice(0, 8)}.json`, JSON.stringify({ day: state.day, run: state.run, at: now.toISOString(), keys: copiedKeys }), { httpMetadata: { contentType: "application/json" } });
 	}
 	state.cursor = page.truncated ? page.cursor : null;
 	if (!page.truncated) {
