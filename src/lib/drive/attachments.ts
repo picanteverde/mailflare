@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNotNull, isNull, notInArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
-import { hasMailboxPermission, listAccessibleMailboxes } from "@/lib/mailboxes/access";
+import { listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { driveTypesCondition } from "./categories";
 import type { DriveCategory } from "./categories";
 import type { DriveItemDto } from "./types";
@@ -22,7 +22,7 @@ function senderName(from: string): string {
 export async function listDriveAttachments(db: Db, user: Parameters<typeof listAccessibleMailboxes>[1], categories: DriveCategory[], trashed = false): Promise<DriveItemDto[]> {
 	const accessible = await listAccessibleMailboxes(db, user);
 	const mailboxIds = accessible.map((mailbox) => mailbox.id);
-	const permissions = new Map(accessible.map((mailbox) => [mailbox.id, mailbox.permission]));
+	const sendable = new Set(accessible.filter((mailbox) => mailbox.canSend).map((mailbox) => mailbox.id));
 	const scopes = [and(isNull(messages.mailboxId), eq(messages.userId, user.id))];
 	for (let index = 0; index < mailboxIds.length; index += MAILBOX_CHUNK) scopes.push(inArray(messages.mailboxId, mailboxIds.slice(index, index + MAILBOX_CHUNK)));
 	const typeFilter = categories.length ? [driveTypesCondition(categories, { contentType: messageAttachments.contentType, name: messageAttachments.filename })] : [];
@@ -54,6 +54,6 @@ export async function listDriveAttachments(db: Db, user: Parameters<typeof listA
 			linkToken: null,
 			trashedAt: row.attachment.trashedAt?.toISOString() ?? null,
 			updatedAt: row.date.toISOString(),
-			source: { messageId: row.messageId, subject: row.subject ?? "", direction: row.direction, canDelete: !row.mailboxId || hasMailboxPermission(permissions.get(row.mailboxId) ?? "read_only", "send_on_behalf") },
+			source: { messageId: row.messageId, subject: row.subject ?? "", direction: row.direction, canDelete: !row.mailboxId || sendable.has(row.mailboxId) },
 		}));
 }

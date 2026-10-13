@@ -105,7 +105,8 @@ export async function updateMessageStatusForUser(
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 	if (!message?.mailboxId) return false;
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canManage) return false;
+	// picanteverde fork: archive/trash/spam/inbox are organizing, which needs receive.
+	if (!access?.canOrganize) return false;
 	if (status === "spam") return applySpamFeedback(env, user, messageId, "spam");
 	if (status === "received" && message.status === "spam") return applySpamFeedback(env, user, messageId, "ham");
 	await db.update(messages).set({ status }).where(eq(messages.id, messageId));

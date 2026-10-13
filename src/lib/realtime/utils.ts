@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { domains, mailboxAccess, mailboxes } from "@/db/schema";
-import { isTeamMailboxSharingEnabled } from "@/lib/mailboxes/access-utils";
+import { mailboxAccess, mailboxes, users } from "@/db/schema";
 import type { NewMessageNotification, AgentDraftNotification } from "./types";
 import { sendPushNotifications } from "@/lib/push/server";
 
@@ -20,33 +19,18 @@ export function getSessionTokenFromRequest(request: Request): string | undefined
 	return undefined;
 }
 
-export async function getMailboxNotificationUserIds(
-	env: CloudflareEnv,
-	mailboxId: string,
-	ownerUserId: string,
-): Promise<string[]> {
-	const db = getDb(env);
-	const mailboxRows = await db
-		.select({ domainOwnerUserId: domains.userId, type: mailboxes.type })
-		.from(mailboxes)
-		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
-		.where(eq(mailboxes.id, mailboxId))
-		.limit(1);
-	const sharedUserIds = mailboxRows[0]?.type === "shared" && await isTeamMailboxSharingEnabled(db)
-		? (await db
-			.select({ userId: mailboxAccess.userId })
-			.from(mailboxAccess)
-			.where(eq(mailboxAccess.mailboxId, mailboxId)))
-			.map((access) => access.userId)
-		: [];
-
-	return [
-		...new Set([
-			ownerUserId,
-			mailboxRows[0]?.domainOwnerUserId,
-			...sharedUserIds,
-		].filter((userId): userId is string => !!userId)),
-	];
+/**
+ * picanteverde fork: only accounts that may receive from the mailbox are notified.
+ * The mailbox owner and the domain owner no longer get every message by default.
+ */
+export async function getMailboxNotificationUserIds(env: CloudflareEnv, mailboxId: string): Promise<string[]> {
+	const rows = await getDb(env)
+		.select({ userId: mailboxAccess.userId })
+		.from(mailboxAccess)
+		.innerJoin(users, eq(users.id, mailboxAccess.userId))
+		.innerJoin(mailboxes, eq(mailboxes.id, mailboxAccess.mailboxId))
+		.where(and(eq(mailboxAccess.mailboxId, mailboxId), eq(mailboxAccess.canReceive, true), eq(users.disabled, false), eq(mailboxes.disabled, false)));
+	return [...new Set(rows.map((row) => row.userId))];
 }
 
 export async function notifyUsersOfNewMessage(

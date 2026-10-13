@@ -2,11 +2,13 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
 	domains,
+	mailboxAccess,
 	mailboxes,
 	messages,
 	outboundJobs,
 	users,
 } from "@/db/schema";
+import { creatorGrant } from "@/lib/mailboxes/access";
 import { hashPassword } from "@/lib/auth/password";
 import { ensureBookingUsername } from "@/lib/booking/username";
 import { upsertContactFromAddress } from "@/lib/contacts/service";
@@ -311,6 +313,7 @@ export async function ensureDemoMailboxes(
 				localPart: definition.localPart,
 				displayName: definition.displayName,
 			});
+			await db.insert(mailboxAccess).values(creatorGrant(id, userId));
 
 			const [created] = await db
 				.select()

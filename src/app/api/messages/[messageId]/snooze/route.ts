@@ -34,7 +34,7 @@ export async function POST(
 	}
 
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canManage) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+	if (!access?.canOrganize) return NextResponse.json({ error: "Message not found" }, { status: 404 });
 
 	await db
 		.update(messages)
@@ -62,7 +62,7 @@ export async function DELETE(
 	if (!message?.mailboxId) return NextResponse.json({ error: "Message not found" }, { status: 404 });
 
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canManage) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+	if (!access?.canOrganize) return NextResponse.json({ error: "Message not found" }, { status: 404 });
 
 	await db.update(messages).set({ snoozedUntil: null }).where(eq(messages.id, message.id));
 	return NextResponse.json({ ok: true });

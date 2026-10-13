@@ -1,135 +1,189 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { domains, mailboxAccess, mailboxes } from "@/db/schema";
+import { newId } from "@/lib/ids";
+import { domains, mailboxAccess, mailboxes, users } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth/types";
-import { isTeamMailboxSharingEnabled } from "./access-utils";
-import type { MailboxAccessLevel, MailboxPermission } from "./types";
+import type { MailboxAccessLevel, MailboxAction, MailboxPermission } from "./types";
 
-const permissionRank: Record<MailboxPermission, number> = {
-	read_only: 1,
-	send_on_behalf: 2,
-	send_as: 3,
-	full_access: 4,
+/*
+ * picanteverde fork: the single access rule (docs/picanteverde-access.md §1).
+ *
+ * - Access comes only from a mailbox_access grant: can_receive and can_send.
+ *   Owning a mailbox (mailboxes.user_id), its `type` and the license grant nothing.
+ * - The legacy `permission` column is never read.
+ * - A disabled account or a disabled mailbox has no access, whatever the grant says.
+ * - Admins manage mailboxes (`admin`) but get no mail access without a grant.
+ * - Every call reads the database; nothing is cached, so a revoked grant applies
+ *   on the next request.
+ */
+
+/** Only the id is used; role and disabled are re-read from the database on every call. */
+type Principal = Pick<SessionUser, "id"> & Partial<Pick<SessionUser, "role" | "email">>;
+
+type GrantRow = {
+	mailbox: typeof mailboxes.$inferSelect;
+	accountDisabled: boolean;
+	role: SessionUser["role"];
+	canReceive: boolean | null;
+	canSend: boolean | null;
 };
 
-export function hasMailboxPermission(permission: MailboxPermission, required: MailboxPermission): boolean {
-	return permissionRank[permission] >= permissionRank[required];
-}
-
-export async function getMailboxAccessLevel(
-	db: AppDatabase,
-	user: Pick<SessionUser, "id" | "role">,
-	mailboxId: string,
-): Promise<MailboxAccessLevel | null> {
-	const [mailbox] = await db.select().from(mailboxes).where(eq(mailboxes.id, mailboxId)).limit(1);
-	if (!mailbox || mailbox.disabled) return null;
-
-	const isOwner = mailbox.userId === user.id;
-	if (isOwner) return buildAccess(mailbox, "full_access", true);
-	if (mailbox.type !== "shared" || !(await isTeamMailboxSharingEnabled(db))) return null;
-
-	const [delegatedAccess] = await db
-		.select({ permission: mailboxAccess.permission })
-		.from(mailboxAccess)
-		.where(and(eq(mailboxAccess.mailboxId, mailbox.id), eq(mailboxAccess.userId, user.id)))
-		.limit(1);
-	if (delegatedAccess) return buildAccess(mailbox, delegatedAccess.permission, false);
-
-	return null;
-}
-
-export async function listAccessibleMailboxes(db: AppDatabase, user: Pick<SessionUser, "id" | "email" | "role">) {
-	const ownedRows = await db
+async function loadGrant(db: AppDatabase, user: Principal, mailboxId: string): Promise<GrantRow | null> {
+	const [row] = await db
 		.select({
-			id: mailboxes.id,
-			userId: mailboxes.userId,
-			domainId: mailboxes.domainId,
-		localPart: mailboxes.localPart,
-		displayName: mailboxes.displayName,
-		signature: mailboxes.signature,
-		autoReplyEnabled: mailboxes.autoReplyEnabled,
-		autoReplySubject: mailboxes.autoReplySubject,
-		autoReplyBody: mailboxes.autoReplyBody,
-		useAllDomains: mailboxes.useAllDomains,
-			avatarKey: mailboxes.avatarKey,
-			type: mailboxes.type,
-			disabled: mailboxes.disabled,
-			createdAt: mailboxes.createdAt,
-			hostname: domains.hostname,
+			mailbox: mailboxes,
+			accountDisabled: users.disabled,
+			role: users.role,
+			canReceive: mailboxAccess.canReceive,
+			canSend: mailboxAccess.canSend,
 		})
 		.from(mailboxes)
-		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
-		.where(and(eq(mailboxes.userId, user.id), eq(mailboxes.disabled, false)));
-	const owned = ownedRows
-		.map((row) => {
-			const { avatarKey, ...mailbox } = row;
-			return {
-				...mailbox,
-				hasAvatar: !!avatarKey,
-				permission: "full_access" as MailboxPermission,
-				isPrimary: `${row.localPart}@${row.hostname}` === user.email,
-			};
-		});
+		.innerJoin(users, eq(users.id, user.id))
+		.leftJoin(mailboxAccess, and(eq(mailboxAccess.mailboxId, mailboxes.id), eq(mailboxAccess.userId, user.id)))
+		.where(eq(mailboxes.id, mailboxId))
+		.limit(1);
+	return row ?? null;
+}
 
-	if (!(await isTeamMailboxSharingEnabled(db))) return owned;
-	const sharedRows = await db
+function decide(row: GrantRow | null, action: MailboxAction): boolean {
+	if (!row || row.accountDisabled) return false;
+	if (action === "admin") return row.role === "admin";
+	if (row.mailbox.disabled) return false;
+	const receive = row.canReceive === true;
+	if (action === "receive") return receive;
+	return receive && row.canSend === true;
+}
+
+/** Default deny: true only when the account may perform `action` on the mailbox right now. */
+export async function can(db: AppDatabase, user: Principal, mailboxId: string, action: MailboxAction): Promise<boolean> {
+	return decide(await loadGrant(db, user, mailboxId), action);
+}
+
+/**
+ * The caller's access to one mailbox, or null when they may not receive from it,
+ * so routes answer 404 exactly as for a missing mailbox (§6).
+ */
+export async function getMailboxAccessLevel(
+	db: AppDatabase,
+	user: Principal,
+	mailboxId: string,
+): Promise<MailboxAccessLevel | null> {
+	const row = await loadGrant(db, user, mailboxId);
+	if (!decide(row, "receive") || !row) return null;
+	const canSend = decide(row, "send");
+	return {
+		mailbox: row.mailbox,
+		permission: grantLabel(canSend),
+		isOwner: false,
+		canRead: true,
+		canOrganize: true,
+		canSend,
+		// Upstream reads canSendOnBehalf as "may send at all" and canSendAs as "sends as
+		// the mailbox". With one send grant both equal canSend, so every send goes out
+		// as the mailbox; the "X on behalf of Y" path is never taken.
+		canSendAs: canSend,
+		canSendOnBehalf: canSend,
+		canManage: decide(row, "admin"),
+	};
+}
+
+/** Mailboxes the account may receive from (or send from, with `action: "send"`), enabled ones only. */
+export async function listAccessibleMailboxes(
+	db: AppDatabase,
+	user: Pick<SessionUser, "id" | "email">,
+	action: Exclude<MailboxAction, "admin"> = "receive",
+) {
+	const rows = await db
 		.select({
 			id: mailboxes.id,
 			userId: mailboxes.userId,
 			domainId: mailboxes.domainId,
-		localPart: mailboxes.localPart,
-		displayName: mailboxes.displayName,
-		signature: mailboxes.signature,
-		autoReplyEnabled: mailboxes.autoReplyEnabled,
-		autoReplySubject: mailboxes.autoReplySubject,
-		autoReplyBody: mailboxes.autoReplyBody,
-		useAllDomains: mailboxes.useAllDomains,
+			localPart: mailboxes.localPart,
+			displayName: mailboxes.displayName,
+			signature: mailboxes.signature,
+			autoReplyEnabled: mailboxes.autoReplyEnabled,
+			autoReplySubject: mailboxes.autoReplySubject,
+			autoReplyBody: mailboxes.autoReplyBody,
+			useAllDomains: mailboxes.useAllDomains,
 			avatarKey: mailboxes.avatarKey,
 			type: mailboxes.type,
 			disabled: mailboxes.disabled,
 			createdAt: mailboxes.createdAt,
 			hostname: domains.hostname,
-			permission: mailboxAccess.permission,
+			canSend: mailboxAccess.canSend,
 		})
 		.from(mailboxAccess)
+		.innerJoin(users, eq(users.id, mailboxAccess.userId))
 		.innerJoin(mailboxes, eq(mailboxAccess.mailboxId, mailboxes.id))
 		.innerJoin(domains, eq(mailboxes.domainId, domains.id))
 		.where(
 			and(
 				eq(mailboxAccess.userId, user.id),
-				eq(mailboxes.type, "shared"),
+				eq(mailboxAccess.canReceive, true),
+				...(action === "send" ? [eq(mailboxAccess.canSend, true)] : []),
+				eq(users.disabled, false),
 				eq(mailboxes.disabled, false),
 			),
 		);
-	const shared = sharedRows.map((row) => {
+	return rows.map((row) => {
 		const { avatarKey, ...mailbox } = row;
 		return {
 			...mailbox,
 			hasAvatar: !!avatarKey,
-			isPrimary: false,
+			permission: grantLabel(row.canSend),
+			isPrimary: `${row.localPart}@${row.hostname}` === user.email,
 		};
 	});
-
-	return [...owned, ...shared];
 }
 
-export async function listAccessibleMailboxIds(db: AppDatabase, user: Pick<SessionUser, "id" | "email" | "role">) {
-	const rows = await listAccessibleMailboxes(db, user);
+export async function listAccessibleMailboxIds(
+	db: AppDatabase,
+	user: Pick<SessionUser, "id" | "email">,
+	action: Exclude<MailboxAction, "admin"> = "receive",
+) {
+	const rows = await listAccessibleMailboxes(db, user, action);
 	return rows.map((row) => row.id);
 }
 
-function buildAccess(
-	mailbox: MailboxAccessLevel["mailbox"],
-	permission: MailboxPermission,
-	isOwner: boolean,
-): MailboxAccessLevel {
+/**
+ * For bulk and agent loops: load the account's grants once per request, then check
+ * each mailbox in memory. Build a new one per request; never keep it across requests.
+ */
+export async function loadMailboxGrants(db: AppDatabase, user: Pick<SessionUser, "id" | "email">) {
+	const rows = await listAccessibleMailboxes(db, user);
+	const receive = new Set(rows.map((row) => row.id));
+	const send = new Set(rows.filter((row) => row.canSend).map((row) => row.id));
 	return {
-		mailbox,
-		permission,
-		isOwner,
-		canRead: hasMailboxPermission(permission, "read_only"),
-		canSendAs: hasMailboxPermission(permission, "send_as"),
-		canSendOnBehalf: hasMailboxPermission(permission, "send_on_behalf"),
-		canManage: hasMailboxPermission(permission, "full_access"),
+		can(mailboxId: string, action: Exclude<MailboxAction, "admin">) {
+			return action === "send" ? send.has(mailboxId) : receive.has(mailboxId);
+		},
+		receive,
+		send,
+	};
+}
+
+/** Display label kept for the existing UI; derived from the grant, never read from `permission`. */
+function grantLabel(canSend: boolean | null): MailboxPermission {
+	return canSend ? "send_as" : "read_only";
+}
+
+/**
+ * Interim (until the Phase 5 admin grants API): the account a mailbox is created for
+ * gets receive+send on it, which keeps today's behaviour now that ownership alone
+ * grants nothing. Insert it next to the mailbox row.
+ */
+export function creatorGrant(mailboxId: string, userId: string, grantedByUserId: string | null = null) {
+	const now = new Date();
+	return {
+		id: newId("mac"),
+		mailboxId,
+		userId,
+		canReceive: true,
+		canSend: true,
+		permission: "full_access" as const,
+		createdByUserId: grantedByUserId,
+		grantedByUserId,
+		grantedAt: now,
+		createdAt: now,
 	};
 }

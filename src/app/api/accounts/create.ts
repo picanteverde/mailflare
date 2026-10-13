@@ -1,7 +1,8 @@
 import { eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { domains, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { domains, mailboxAccess, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { creatorGrant } from "@/lib/mailboxes/access";
 import { hashPassword } from "@/lib/auth/password";
 import { ensureBookingUsername } from "@/lib/booking/username";
 import { rollbackEmailRoutingRuleChanges } from "@/lib/cloudflare-api";
@@ -62,6 +63,7 @@ export async function createAccountResponse(env: CloudflareEnv, adminUserId: str
 			role: input.role, createdByUserId: adminUserId,
 		}).returning();
 		const mailboxInsert = db.insert(mailboxes).values(mailbox);
+		const grantInsert = db.insert(mailboxAccess).values(creatorGrant(mailboxId, userId, adminUserId));
 		// Five bound columns per alias: 20 rows fit D1's 100-parameter limit.
 		const aliasInserts = Array.from({ length: Math.ceil(input.aliases.length / 20) }, (_, index) =>
 			db.insert(mailboxAliases).values(input.aliases.slice(index * 20, (index + 1) * 20).map((alias) => ({
@@ -69,7 +71,7 @@ export async function createAccountResponse(env: CloudflareEnv, adminUserId: str
 			}))),
 		);
 		// D1 batches are atomic: aliases and their owner either all exist or none do.
-		const [accounts] = await db.batch([accountInsert, mailboxInsert, ...aliasInserts]);
+		const [accounts] = await db.batch([accountInsert, mailboxInsert, grantInsert, ...aliasInserts]);
 		inserted = true;
 		await ensureBookingUsername(env, userId, email);
 		await ensureMailboxDomainRouting(env, db, mailbox, changes);

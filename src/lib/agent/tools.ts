@@ -174,7 +174,8 @@ export async function runEmailTool(context: AgentToolContext, name: EmailToolNam
 		return { emailId: row.id, read: input.read };
 	}
 	if (name === "move_email" || name === "move_emails") {
-		await requireAccess(context, false, true);
+		// picanteverde fork: moving mail is organizing, which needs receive only.
+		await requireAccess(context);
 		const ids = name === "move_email" ? [input.emailId as string] : [...new Set(input.emailIds as string[])];
 		const rows = await Promise.all(ids.map((messageId) => ownMessage(context, messageId)));
 		if (rows.some((row) => row.status === "draft" || row.status === "sent")) throw new Error("Cannot move this message");

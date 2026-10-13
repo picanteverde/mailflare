@@ -4,12 +4,20 @@ export type MailboxPermission = "read_only" | "send_as" | "send_on_behalf" | "fu
 
 export type MailboxType = "personal" | "shared";
 
+/** picanteverde fork: what a grant allows (docs/picanteverde-access.md §2). */
+export type MailboxAction = "receive" | "send" | "admin";
+
 export type MailboxAccessLevel = {
 	mailbox: typeof mailboxes.$inferSelect;
 	permission: MailboxPermission;
+	/** Always false in this fork: owning a mailbox grants nothing by itself. */
 	isOwner: boolean;
 	canRead: boolean;
+	canOrganize: boolean;
+	canSend: boolean;
+	/** picanteverde fork: equal to canSend. */
 	canSendAs: boolean;
+	/** picanteverde fork: equal to canSend (upstream meaning: "may send at all"). */
 	canSendOnBehalf: boolean;
 	canManage: boolean;
 };

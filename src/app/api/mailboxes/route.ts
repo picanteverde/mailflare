@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { domains, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { domains, mailboxAccess, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { creatorGrant } from "@/lib/mailboxes/access";
 import { requireUser } from "@/lib/auth/cookies";
 import { newId } from "@/lib/ids";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
@@ -97,6 +98,7 @@ export async function POST(request: Request) {
 		displayName: parsed.data.displayName,
 		type: mailboxType,
 	});
+	await db.insert(mailboxAccess).values(creatorGrant(id, ownerUserId, user.id));
 	try {
 		await ensureMailboxDomainRouting(env, db, { id, domainId: domain.id, localPart, useAllDomains: true });
 	} catch (err) {

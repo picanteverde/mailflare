@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { and, eq, or } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { domains, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { domains, mailboxAccess, mailboxAliases, mailboxes, users } from "@/db/schema";
+import { creatorGrant } from "@/lib/mailboxes/access";
 import { authenticateAdminApiKey, canShareAdminMailboxes } from "@/lib/api/admin-auth";
 import { newId } from "@/lib/ids";
 import { mailboxSchema } from "@/lib/validators";
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
 	if (alias) return NextResponse.json({ error: "An alias already uses this address" }, { status: 409 });
 	const id = newId("mbx");
 	await db.insert(mailboxes).values({ id, userId: ownerUserId, domainId: domain.id, localPart, displayName: parsed.data.displayName, type: mailboxType });
+	await db.insert(mailboxAccess).values(creatorGrant(id, ownerUserId));
 	try {
 		await ensureMailboxDomainRouting(env, db, { id, domainId: domain.id, localPart, useAllDomains: true });
 	} catch (error) {

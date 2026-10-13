@@ -54,6 +54,9 @@ export async function POST(request: Request, { params }: MailboxAccessRouteParam
 		.limit(1);
 	if (!user) return NextResponse.json({ error: "Account not found" }, { status: 404 });
 
+	// picanteverde fork (interim until the Phase 5 grants API): access decisions read
+	// only can_receive/can_send, so keep them in step with the legacy level.
+	const grant = { canReceive: true, canSend: parsed.data.permission !== "read_only", grantedByUserId: access.user!.id, grantedAt: new Date() };
 	await db
 		.insert(mailboxAccess)
 		.values({
@@ -62,10 +65,11 @@ export async function POST(request: Request, { params }: MailboxAccessRouteParam
 			userId: user.id,
 			permission: parsed.data.permission,
 			createdByUserId: access.user!.id,
+			...grant,
 		})
 		.onConflictDoUpdate({
 			target: [mailboxAccess.mailboxId, mailboxAccess.userId],
-			set: { permission: parsed.data.permission, createdByUserId: access.user!.id },
+			set: { permission: parsed.data.permission, createdByUserId: access.user!.id, ...grant },
 		});
 	return NextResponse.json({ ok: true });
 }

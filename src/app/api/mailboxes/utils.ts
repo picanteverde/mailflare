@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/db";
-import { domains, mailboxes } from "@/db/schema";
+import { domains, mailboxAccess, mailboxes } from "@/db/schema";
 import { ensureEmailRoutingRuleToWorker } from "@/lib/cloudflare-api";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 import { newId } from "@/lib/ids";
-import { listAccessibleMailboxes } from "@/lib/mailboxes/access";
+import { creatorGrant, listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import type { SessionUser } from "@/lib/auth/types";
 
 export async function ensurePersonalMailbox(env: CloudflareEnv, db: AppDatabase, user: SessionUser) {
@@ -39,6 +39,7 @@ export async function ensurePersonalMailbox(env: CloudflareEnv, db: AppDatabase,
 			displayName: user.name || localPart,
 			type: "personal",
 		});
+		await db.insert(mailboxAccess).values(creatorGrant(id, user.id)).onConflictDoNothing();
 	} catch {
 		return current;
 	}

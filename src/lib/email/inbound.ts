@@ -235,11 +235,7 @@ export async function processInboundMessage(
 	}
 
 	if (status !== "spam") {
-		const notificationUserIds = await getMailboxNotificationUserIds(
-			env,
-			decision.mailbox.mailboxId,
-			decision.mailbox.userId,
-		);
+		const notificationUserIds = await getMailboxNotificationUserIds(env, decision.mailbox.mailboxId);
 		await notifyUsersOfNewMessage(env, notificationUserIds, {
 			type: "new_message",
 			messageId,

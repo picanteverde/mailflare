@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
 import { authorizeDrive } from "@/lib/drive/auth";
-import { getMailboxAccessLevel, hasMailboxPermission } from "@/lib/mailboxes/access";
+import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
 
 const MAX_BULK = 200;
 
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 			else {
 				if (!accessCache.has(row.mailboxId)) {
 					const access = await getMailboxAccessLevel(db, user, row.mailboxId);
-					accessCache.set(row.mailboxId, !!access && hasMailboxPermission(access.permission, "send_on_behalf"));
+					accessCache.set(row.mailboxId, !!access?.canSend);
 				}
 				allowed = accessCache.get(row.mailboxId)!;
 			}

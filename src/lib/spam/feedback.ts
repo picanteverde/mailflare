@@ -14,7 +14,7 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 	if (!message?.mailboxId || message.direction !== "inbound") return false;
 	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canManage) return false;
+	if (!access?.canOrganize) return false;
 	const [previous] = await db.select().from(spamFeedback).where(eq(spamFeedback.messageId, messageId)).limit(1);
 	const status = classification === "spam" ? "spam" : "received";
 	if (previous?.classification === classification) {

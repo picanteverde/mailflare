@@ -72,7 +72,8 @@ export async function POST(request: Request) {
 	for (const message of selectedMessages) {
 		if (!message.mailboxId) continue;
 		const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-		const canUpdate = payload.action === "read" || payload.action === "unread" ? access?.canRead : access?.canManage;
+		// picanteverde fork: organizing needs receive; destroying mail is admin-only (access design §2).
+		const canUpdate = payload.action === "delete" ? access?.canManage : access?.canOrganize;
 		if (!canUpdate) continue;
 		allowedMessageIds.push(message.id);
 	}
