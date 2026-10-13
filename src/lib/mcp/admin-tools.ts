@@ -56,7 +56,7 @@ export function registerAdminMcpTools(server: McpServer, principal: McpPrincipal
 	});
 
 	if (principal.scopes.includes("accounts")) server.registerTool("manage_accounts", {
-		description: "List, inspect, create, or update managed accounts. Actions: list, get, create, update. Pass id for get or update and data for create or update. For create, data accepts username, domainId, password, role?, useAllDomains? (defaults to true for compatibility), and aliases?: [{ domainId, localPart }]. Set useAllDomains to false to assign only the primary address and explicit aliases. Requires a Pro or Team license; Pro is limited to its account seats.",
+		description: "List, inspect, create, or update managed accounts. Actions: list, get, create, update. Pass id for get or update and data for create or update. For create, data accepts login (an email address on any domain, or a username), name?, password (12+ characters) and role?. An account is a login only: it gets no mailbox, and mailbox access is granted separately. For update, data accepts name, role, disabled, password and forwardingEmail.",
 		inputSchema: adminInput,
 	}, async ({ action, id, data }) => {
 		if (!principal.scopes.includes("accounts")) return result({ error: "Permission denied" }, true);

@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // on a database shaped like today's.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDirectory = join(root, "drizzle/migrations");
-const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql", "0063_contacts_per_mailbox.sql"];
+const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql", "0063_contacts_per_mailbox.sql", "0064_sessions_revoked_at.sql"];
 const scratch = mkdtempSync(join(root, "node_modules", "mailflare-access-migration-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 

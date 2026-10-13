@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
 import { requireTeamAdmin } from "../../utils";
+import { createAuditLog } from "@/lib/mailboxes/audit";
 import type { AccountRouteParams } from "../types";
 import { selectAccountById } from "../utils";
 
@@ -35,5 +36,6 @@ export async function POST(request: Request, { params }: AccountRouteParams) {
 		db.update(users).set({ isPrimaryAdmin: false }).where(eq(users.id, actor.id)),
 		db.update(users).set({ isPrimaryAdmin: true, role: "admin" }).where(eq(users.id, target.id)),
 	]);
+	await createAuditLog(access.env, { actorUserId: actor.id, targetUserId: target.id, action: "account.primary_transfer" });
 	return NextResponse.json({ ok: true });
 }

@@ -79,7 +79,8 @@ export const addDomainSchema = z.object({
 });
 
 export const loginSchema = z.object({
-	email: z.string().email(),
+	// picanteverde fork: a login is an email address on any domain or a plain username.
+	email: z.string().trim().toLowerCase().min(1).max(254),
 	password: z.string().min(1),
 });
 
@@ -126,7 +127,8 @@ export const updateManagedAccountSchema = z.object({
 	name: z.string().trim().min(1).max(100),
 	role: z.enum(["admin", "user"]),
 	disabled: z.boolean(),
-	canManageMailboxes: z.boolean(),
+	// picanteverde fork: admin is all-or-nothing; these upstream flags are accepted and ignored.
+	canManageMailboxes: z.boolean().optional(),
 	canManageDomains: z.boolean().optional(),
 	canManageUsers: z.boolean().optional(),
 	forwardingEmail: z.preprocess(
@@ -157,14 +159,12 @@ export const createMailboxAliasSchema = z.object({
 		.transform((value) => value.toLowerCase()),
 });
 
+/** picanteverde fork: an account is credentials only; mailboxes are granted separately. */
 export const createUserAccountSchema = z.object({
-	username: z.string().trim().min(1).max(64).regex(/^[a-zA-Z0-9._%+-]+$/),
-	domainId: z.string().min(1),
-	password: z.string().min(8).max(128),
+	login: z.string().trim().min(1).max(254),
+	name: z.string().trim().max(100).optional(),
+	password: z.string().min(1).max(128),
 	role: z.enum(["admin", "user"]).default("user"),
-	// Existing API/MCP clients retain the previous behavior when this is omitted.
-	useAllDomains: z.boolean().default(true),
-	aliases: z.array(createMailboxAliasSchema).default([]),
 });
 
 export const updateAccountSchema = z.object({

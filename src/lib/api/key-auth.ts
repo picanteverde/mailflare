@@ -4,6 +4,7 @@ import { apiKeys, mcpKeyMailboxes, users } from "@/db/schema";
 import { parseScopes, verifyApiKey } from "@/lib/api-keys";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
 import { listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { isRevokedAt } from "@/lib/auth/session";
 import { ADMIN_API_KEY_SCOPES } from "@/lib/api/scopes";
 
 const LAST_USED_WRITE_INTERVAL_MS = 60_000;
@@ -25,6 +26,8 @@ export async function authenticateApiKeyValue(env: CloudflareEnv, key: string): 
 		if (!verifyApiKey(trimmed, candidate.keyHash)) continue;
 		const [user] = await db.select().from(users).where(eq(users.id, candidate.userId)).limit(1);
 		if (!user || user.disabled) continue;
+		// picanteverde fork: keys follow their account; a revocation kills keys created before it.
+		if (isRevokedAt(user.sessionsRevokedAt, candidate.createdAt)) continue;
 
 		const stale = new Date(Date.now() - LAST_USED_WRITE_INTERVAL_MS);
 		await db

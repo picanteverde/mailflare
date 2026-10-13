@@ -6,6 +6,7 @@ import { assertAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/cookies";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
 import { getEnv } from "@/lib/cloudflare";
+import { AccountAdminError } from "@/lib/accounts/admin";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -77,6 +78,12 @@ export function accountListItemFromUser(user: {
 	};
 }
 
+/** picanteverde fork: maps AccountAdminError to its status and code; anything else is a 500. */
+export function accountErrorResponse(error: unknown) {
+	if (error instanceof AccountAdminError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+	throw error;
+}
+
 /** Admin session on an installation licensed for Team-only mailbox sharing. */
 export async function requireTeamSharingAdmin(request: Request) {
 	const access = await requireTeamAdmin(request);
@@ -87,18 +94,12 @@ export async function requireTeamSharingAdmin(request: Request) {
 	return access;
 }
 
+/** picanteverde fork: any enabled admin session; no license or seat gate. */
 export async function requireTeamAdmin(request: Request) {
 	const env = getEnv();
 	try {
 		const user = await requireUser(env, request);
 		assertAdmin(user);
-		if (!(await getLicenseEntitlements(env)).canManageAccounts) {
-			return {
-				env,
-				user,
-				error: NextResponse.json({ error: "A Pro or Team license is required to manage accounts" }, { status: 403 }),
-			};
-		}
 		return { env, user, error: null };
 	} catch {
 		return { env, user: null, error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };

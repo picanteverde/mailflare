@@ -32,6 +32,8 @@ export const users = sqliteTable("users", {
 	totpSecret: text("totp_secret"),
 	totpEnabled: integer("totp_enabled", { mode: "boolean" }).notNull().default(false),
 	totpConfirmedAt: integer("totp_confirmed_at", { mode: "timestamp" }),
+	// picanteverde fork (0064): sessions, API keys and sockets from at or before this time are dead.
+	sessionsRevokedAt: integer("sessions_revoked_at", { mode: "timestamp" }),
 	createdByUserId: text("created_by_user_id").references((): AnySQLiteColumn => users.id, { onDelete: "set null" }),
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()

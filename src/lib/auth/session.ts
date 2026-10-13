@@ -41,6 +41,8 @@ export async function getUserFromSession(
 	if (!session) return null;
 	const db = getDb(env);
 	const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+	// picanteverde fork: a session from before the last revocation is dead even if a row survived.
+	if (user && isRevokedAt(user.sessionsRevokedAt, session.createdAt)) return null;
 	return user ?? null;
 }
 
@@ -77,6 +79,28 @@ export async function deleteUserSessions(env: CloudflareEnv, userId: string, kee
 		return;
 	}
 	await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/** True when something created at `createdAt` predates the account's last revocation. */
+export function isRevokedAt(revokedAt: Date | null | undefined, createdAt: Date): boolean {
+	return !!revokedAt && createdAt.getTime() <= revokedAt.getTime();
+}
+
+/**
+ * picanteverde fork: end every session, API key and realtime socket the account has right
+ * now (access design §4). Used by "revoke sessions", password reset, disable and TOTP reset.
+ * Returns how many sessions were deleted.
+ */
+export async function revokeAllAccess(env: CloudflareEnv, userId: string): Promise<number> {
+	const db = getDb(env);
+	// The column holds unix seconds; with `<=` everything created in this second or earlier is dead.
+	const now = new Date(Math.floor(Date.now() / 1000) * 1000);
+	const deleted = await db.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id });
+	await db.update(users).set({ sessionsRevokedAt: now }).where(eq(users.id, userId));
+	if (env.REALTIME) {
+		await env.REALTIME.getByName(userId).fetch("https://realtime/revoke", { method: "POST" }).catch(() => undefined);
+	}
+	return deleted.length;
 }
 
 /** The session token a request carries, from the Bearer header or the cookie. */

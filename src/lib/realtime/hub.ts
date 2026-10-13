@@ -1,4 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { users } from "@/db/schema";
 import { getUserMailRevision } from "./revision";
 import type { NewMessageNotification, AgentDraftNotification, RevisionPing, RevisionNotification } from "./types";
 
@@ -17,9 +20,15 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 			const userId = request.headers.get("X-Mailflare-Realtime-User");
 			if (!userId) return new Response("Unauthorized", { status: 401 });
 			this.ctx.acceptWebSocket(server);
-			server.serializeAttachment({ userId });
+			server.serializeAttachment({ userId, connectedAt: Date.now() });
 
 			return new Response(null, { status: 101, webSocket: client });
+		}
+
+		// picanteverde fork: "revoke sessions" closes every live socket of this account.
+		if (url.pathname === "/revoke" && request.method === "POST") {
+			for (const socket of this.ctx.getWebSockets()) socket.close(4001, "Session revoked");
+			return new Response(null, { status: 204 });
 		}
 
 		if (url.pathname === "/notify" && request.method === "POST") {
@@ -53,8 +62,14 @@ export class RealtimeHub extends DurableObject<CloudflareEnv> {
 			return;
 		}
 		if (ping.type !== "ping") return;
-		const userId = socket.deserializeAttachment() as { userId?: string } | null;
+		const userId = socket.deserializeAttachment() as { userId?: string; connectedAt?: number } | null;
 		if (!userId?.userId) return;
+		// picanteverde fork: a socket outlives neither a disable nor a revocation.
+		const [account] = await getDb(this.env).select({ disabled: users.disabled, revokedAt: users.sessionsRevokedAt }).from(users).where(eq(users.id, userId.userId)).limit(1);
+		if (!account || account.disabled || (account.revokedAt && (userId.connectedAt ?? 0) <= account.revokedAt.getTime())) {
+			socket.close(4001, "Session revoked");
+			return;
+		}
 		try {
 			const revision = await getUserMailRevision(this.env, userId.userId);
 			const notification: RevisionNotification = { type: "revision", revision, changed: ping.revision !== null && ping.revision !== revision };

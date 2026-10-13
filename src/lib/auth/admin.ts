@@ -28,16 +28,12 @@ export function assertPrimaryAdmin(
 	}
 }
 
-/** Domains can be managed by the primary admin or an admin the primary granted it to. */
-export function canManageDomains(
-	user: Pick<SessionUser, "role" | "isPrimaryAdmin" | "canManageDomains">,
-): boolean {
-	return isPrimaryAdmin(user) || (user.role === "admin" && user.canManageDomains);
+/** picanteverde fork: admin is all-or-nothing; the granular upstream flags are ignored. */
+export function canManageDomains(user: Pick<SessionUser, "role">): boolean {
+	return isAdmin(user);
 }
 
-/** User accounts can be managed by the primary admin or an admin the primary granted it to. */
-export function canManageUsers(
-	user: Pick<SessionUser, "role" | "isPrimaryAdmin" | "canManageUsers">,
-): boolean {
-	return isPrimaryAdmin(user) || (user.role === "admin" && user.canManageUsers);
+/** picanteverde fork: admin is all-or-nothing; the granular upstream flags are ignored. */
+export function canManageUsers(user: Pick<SessionUser, "role">): boolean {
+	return isAdmin(user);
 }
