@@ -107,6 +107,7 @@ async function importMessageToMailbox(
 		const contactAddress = placement.direction === "outbound" ? toAddr : fromAddr;
 		await upsertContactFromAddress(env, {
 			userId: input.userId,
+			mailboxId: input.mailboxId,
 			address: contactAddress,
 			source: placement.direction === "outbound" ? "outbound" : "inbound",
 		});

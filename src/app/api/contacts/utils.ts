@@ -5,11 +5,12 @@ import { getContactId } from "@/lib/contacts/utils";
 
 type Db = ReturnType<typeof getDb>;
 
-export async function getContactByEmail(db: Db, userId: string, email: string) {
+/** picanteverde fork: contacts are looked up in one mailbox only (0063). */
+export async function getContactByEmail(db: Db, mailboxId: string, email: string) {
 	const [contact] = await db
 		.select()
 		.from(contacts)
-		.where(and(eq(contacts.userId, userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, mailboxId), eq(contacts.email, email)))
 		.limit(1);
 	return contact ?? null;
 }
@@ -22,9 +23,9 @@ export function toContactDetails(contact: Awaited<ReturnType<typeof getContactBy
 
 export async function saveManualContactName(
 	db: Db,
-	input: { userId: string; email: string; displayName: string },
+	input: { userId: string; mailboxId: string; email: string; displayName: string },
 ) {
-	const existing = await getContactByEmail(db, input.userId, input.email);
+	const existing = await getContactByEmail(db, input.mailboxId, input.email);
 	if (existing) {
 		await db
 			.update(contacts)
@@ -33,13 +34,14 @@ export async function saveManualContactName(
 		return { ...existing, displayName: input.displayName, source: "manual" as const };
 	}
 
-	const id = getContactId(input.userId, input.email);
+	const id = getContactId(input.mailboxId, input.email);
 	await db.insert(contacts).values({
 		id,
 		userId: input.userId,
+		mailboxId: input.mailboxId,
 		email: input.email,
 		displayName: input.displayName,
 		source: "manual",
 	});
-	return getContactByEmail(db, input.userId, input.email);
+	return getContactByEmail(db, input.mailboxId, input.email);
 }

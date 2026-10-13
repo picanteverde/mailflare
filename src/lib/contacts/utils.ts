@@ -1,7 +1,8 @@
 import { getEmailDisplayName, normalizeEmailAddress, parseEmailAddressParts } from "@/lib/email/address";
 
-export function getContactId(userId: string, email: string): string {
-	return `${userId}:${email.trim().toLowerCase()}`;
+/** picanteverde fork: contacts are per mailbox (0063), so ids are `<mailboxId>:<email>`. */
+export function getContactId(mailboxId: string, email: string): string {
+	return `${mailboxId}:${email.trim().toLowerCase()}`;
 }
 
 export function getContactNameFromAddress(address: string): string | null {

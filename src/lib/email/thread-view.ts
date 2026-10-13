@@ -69,12 +69,12 @@ export async function getMessageThreadForUser(env: CloudflareEnv, user: SessionU
 
 	const contactMap = await getContactDisplayNameMap(
 		env,
-		message.userId,
+		message.mailboxId,
 		rows.flatMap((row) => [row.fromAddr, getFirstEmailAddressEntry(row.toAddr)]),
 	);
 	const contactAvatarMap = await getContactAvatarMap(
 		env,
-		message.userId,
+		message.mailboxId,
 		rows.map((row) => row.fromAddr),
 	);
 

@@ -15,7 +15,7 @@ export async function upsertContactFromAddress(env: CloudflareEnv, input: Contac
 	const [existing] = await db
 		.select()
 		.from(contacts)
-		.where(and(eq(contacts.userId, input.userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, input.mailboxId), eq(contacts.email, email)))
 		.limit(1);
 	const now = new Date();
 
@@ -36,10 +36,11 @@ export async function upsertContactFromAddress(env: CloudflareEnv, input: Contac
 		return { ...existing, displayName: nextDisplayName, source: nextSource, lastSeenAt: now };
 	}
 
-	const id = getContactId(input.userId, email);
+	const id = getContactId(input.mailboxId, email);
 	await db.insert(contacts).values({
 		id,
 		userId: input.userId,
+		mailboxId: input.mailboxId,
 		email,
 		displayName,
 		source: input.source,
@@ -54,7 +55,7 @@ export async function upsertContactFromAddress(env: CloudflareEnv, input: Contac
 	return created ?? null;
 }
 
-export async function getContactDisplayNameMap(env: CloudflareEnv, userId: string, addresses: string[]) {
+export async function getContactDisplayNameMap(env: CloudflareEnv, mailboxId: string, addresses: string[]) {
 	const emails = Array.from(new Set(addresses.map(normalizeEmailAddress).filter(Boolean)));
 	if (emails.length === 0) return new Map<string, string>();
 
@@ -62,7 +63,7 @@ export async function getContactDisplayNameMap(env: CloudflareEnv, userId: strin
 	const rows = await db
 		.select()
 		.from(contacts)
-		.where(and(eq(contacts.userId, userId), inArray(contacts.email, emails)));
+		.where(and(eq(contacts.mailboxId, mailboxId), inArray(contacts.email, emails)));
 
 	return new Map(
 		rows
@@ -71,7 +72,7 @@ export async function getContactDisplayNameMap(env: CloudflareEnv, userId: strin
 	);
 }
 
-export async function getContactAvatarMap(env: CloudflareEnv, userId: string, addresses: string[]) {
+export async function getContactAvatarMap(env: CloudflareEnv, mailboxId: string, addresses: string[]) {
 	const emails = Array.from(new Set(addresses.map(normalizeEmailAddress).filter(Boolean)));
 	if (emails.length === 0) return new Map<string, boolean>();
 
@@ -79,20 +80,20 @@ export async function getContactAvatarMap(env: CloudflareEnv, userId: string, ad
 	const rows = await db
 		.select({ email: contacts.email, avatarKey: contacts.avatarKey })
 		.from(contacts)
-		.where(and(eq(contacts.userId, userId), inArray(contacts.email, emails)));
+		.where(and(eq(contacts.mailboxId, mailboxId), inArray(contacts.email, emails)));
 
 	return new Map(rows.map((contact) => [contact.email, !!contact.avatarKey]));
 }
 
 export async function getMessageContactNames(
 	env: CloudflareEnv,
-	userId: string,
+	mailboxId: string,
 	fromAddr: string,
 	toAddr: string,
 ): Promise<MessageContactNames> {
 	// `toAddr` may be a full recipient list; the name shown belongs to the first one.
 	const firstTo = getFirstEmailAddressEntry(toAddr);
-	const contactMap = await getContactDisplayNameMap(env, userId, [fromAddr, firstTo]);
+	const contactMap = await getContactDisplayNameMap(env, mailboxId, [fromAddr, firstTo]);
 
 	return {
 		fromContactName: contactMap.get(normalizeEmailAddress(fromAddr)) ?? null,
@@ -105,11 +106,11 @@ export async function blockContact(env: CloudflareEnv, input: BlockContactInput)
 	if (!email) throw new Error("Contact email is required");
 
 	const db = getDb(env);
-	const contactId = getContactId(input.userId, email);
+	const contactId = getContactId(input.mailboxId, email);
 	const [existingContact] = await db
 		.select()
 		.from(contacts)
-		.where(and(eq(contacts.userId, input.userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, input.mailboxId), eq(contacts.email, email)))
 		.limit(1);
 	if (existingContact) {
 		await db.update(contacts).set({ blocked: true }).where(eq(contacts.id, existingContact.id));
@@ -117,6 +118,7 @@ export async function blockContact(env: CloudflareEnv, input: BlockContactInput)
 		await db.insert(contacts).values({
 			id: contactId,
 			userId: input.userId,
+			mailboxId: input.mailboxId,
 			email,
 			displayName: getContactNameFromAddress(input.address),
 			source: "inbound",

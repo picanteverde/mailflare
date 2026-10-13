@@ -47,15 +47,16 @@ export async function syncPersonalIdentity(
 			await db
 				.insert(contacts)
 				.values({
-					id: getContactId(identity.userId, email),
+					id: getContactId(mailbox.id, email),
 					userId: identity.userId,
+					mailboxId: mailbox.id,
 					email,
 					displayName,
 					avatarKey,
 					source: "manual",
 				})
 				.onConflictDoUpdate({
-					target: [contacts.userId, contacts.email],
+					target: [contacts.mailboxId, contacts.email],
 					set: {
 						displayName,
 						avatarKey,

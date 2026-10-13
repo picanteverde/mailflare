@@ -386,6 +386,13 @@
       "when": 1788850803023,
       "tag": "0062_audit_logs_standalone",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "6",
+      "when": 1788850804023,
+      "tag": "0063_contacts_per_mailbox",
+      "breakpoints": true
     }
   ]
 }

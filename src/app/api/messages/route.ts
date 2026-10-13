@@ -172,15 +172,16 @@ export async function GET(request: Request) {
 				: mailbox.displayName ?? mailbox.localPart,
 		]),
 	);
-	const contactMapsByUserId = new Map(
+	// picanteverde fork: contacts are per mailbox (0063), so names come from each row's own mailbox.
+	const contactMapsByMailboxId = new Map(
 		await Promise.all(
-			Array.from(new Set(rows.map((message) => message.userId))).map(async (userId) => [
-				userId,
+			Array.from(new Set(rows.map((message) => message.mailboxId).filter((id): id is string => !!id))).map(async (rowMailboxId) => [
+				rowMailboxId,
 				await getContactDisplayNameMap(
 					env,
-					userId,
+					rowMailboxId,
 					rows
-						.filter((message) => message.userId === userId)
+						.filter((message) => message.mailboxId === rowMailboxId)
 						.flatMap((message) => [message.fromAddr, getFirstEmailAddressEntry(message.toAddr)]),
 				),
 			] as const),
@@ -190,7 +191,7 @@ export async function GET(request: Request) {
 	// reading pane loads them from /api/messages/[id]/thread, so they are
 	// neither selected nor sent here.
 	const enrichedRows = rows.map(({ rawR2Key: _rawR2Key, ...message }) => {
-		const contactMap = contactMapsByUserId.get(message.userId);
+		const contactMap = message.mailboxId ? contactMapsByMailboxId.get(message.mailboxId) : undefined;
 		const accountName = message.mailboxId ? mailboxNameMap.get(message.mailboxId) : null;
 		return {
 			...message,

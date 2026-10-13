@@ -169,6 +169,9 @@ export const contacts = sqliteTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "cascade" }),
+		// picanteverde fork (0063): the mailbox this contact belongs to. Lookups always filter
+		// by it; rows with null are pre-0063 owner-wide leftovers and are never read.
+		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "cascade" }),
 		email: text("email").notNull(),
 		displayName: text("display_name"),
 		avatarKey: text("avatar_key"),
@@ -182,7 +185,8 @@ export const contacts = sqliteTable(
 			.$defaultFn(() => new Date()),
 	},
 	(t) => [
-		uniqueIndex("contacts_user_email_idx").on(t.userId, t.email),
+		uniqueIndex("contacts_mailbox_email_idx").on(t.mailboxId, t.email),
+		index("contacts_mailbox_idx").on(t.mailboxId),
 		index("contacts_user_idx").on(t.userId),
 	],
 );

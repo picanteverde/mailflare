@@ -381,6 +381,7 @@ export async function insertDemoMessages(
 
 		await upsertContactFromAddress(env, {
 			userId,
+			mailboxId: mailbox.id,
 			address: seedMessage.direction === "inbound" ? seedMessage.fromAddr : seedMessage.toAddr,
 			source: seedMessage.direction === "inbound" ? "inbound" : "outbound",
 		});

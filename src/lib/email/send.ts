@@ -93,7 +93,7 @@ export async function sendEmail(
 		throw new Error(`A message can have at most ${MAX_RECIPIENTS} recipients`);
 	}
 	for (const address of [...to, ...cc, ...bcc]) {
-		await upsertContactFromAddress(env, { userId: input.userId, address, source: "outbound" });
+		await upsertContactFromAddress(env, { userId: input.userId, mailboxId: sender.mailboxId, address, source: "outbound" });
 	}
 
 	const inReplyTo = normalizeMessageId(input.inReplyTo);

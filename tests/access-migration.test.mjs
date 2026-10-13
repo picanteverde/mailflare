@@ -9,7 +9,7 @@ import { build } from "esbuild";
 // on a database shaped like today's.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDirectory = join(root, "drizzle/migrations");
-const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql"];
+const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql", "0063_contacts_per_mailbox.sql"];
 const scratch = mkdtempSync(join(root, "node_modules", "mailflare-access-migration-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
@@ -68,6 +68,17 @@ function seed(db) {
 			('m1', 'admin', 'inbox', 'inbound', 'x@y.z', 'hello@ex.com', 'one', 1),
 			('m2', 'admin', 'inbox', 'outbound', 'hello@ex.com', 'x@y.z', 'two', 2),
 			('m3', 'admin', 'team', 'inbound', 'x@y.z', 'team@ex.com', 'three', 3);
+		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, cc_addr, subject, created_at) VALUES
+			('m4', 'admin', 'team', 'inbound', 'Only Team <only@team.z>', 'team@ex.com', NULL, 'four', 4),
+			('m5', 'admin', 'inbox', 'outbound', 'hello@ex.com', 'Friend <friend@z.z>', 'X@Y.Z', 'five', 5);
+		INSERT INTO contacts (id, user_id, email, display_name, source, blocked, last_seen_at, created_at) VALUES
+			('admin:x@y.z', 'admin', 'x@y.z', 'Shared Sender', 'inbound', 0, 9, 1),
+			('admin:only@team.z', 'admin', 'only@team.z', 'Only Team', 'inbound', 0, 9, 1),
+			('admin:friend@z.z', 'admin', 'friend@z.z', 'Friend', 'outbound', 0, 9, 1),
+			('admin:ghost@z.z', 'admin', 'ghost@z.z', 'Never mailed', 'manual', 0, NULL, 1),
+			('admin:spam@z.z', 'admin', 'spam@z.z', NULL, 'inbound', 1, 9, 1);
+		INSERT INTO routing_rules (id, user_id, domain_id, pattern, match_field, match_operator, match_value, mailbox_id, action, priority, created_at)
+			VALUES ('block:inbox:blocked@z.z', 'admin', 'd', 'blocked@z.z', 'email', 'exact', 'blocked@z.z', 'inbox', 'trash', 100, 1);
 		INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES ('s1', 'admin', 'h1', 9999999999, 1);
 		INSERT INTO audit_logs (id, actor_user_id, target_user_id, mailbox_id, message_id, action, metadata, created_at) VALUES
 			('l1', 'admin', 'ro', 'team', 'm3', 'mailbox.share', '{}', 1);
@@ -113,6 +124,27 @@ function assertGrants(db, beforeCounts) {
 	assert.ok(indexes.includes("sessions_user_idx"));
 }
 
+function assertContactsPerMailbox(db) {
+	const scoped = (mailbox) => db.prepare("SELECT id, email, display_name AS name, blocked, last_seen_at AS seen FROM contacts WHERE mailbox_id = ? ORDER BY email").all(mailbox).map((row) => ({ ...row }));
+	// x@y.z mailed both inbox (m1 from, m5 cc) and team (m3): one row each, lastSeenAt from that mailbox only.
+	assert.deepEqual(scoped("inbox"), [
+		{ id: "inbox:blocked@z.z", email: "blocked@z.z", name: null, blocked: 1, seen: null },
+		{ id: "inbox:friend@z.z", email: "friend@z.z", name: "Friend", blocked: 0, seen: 5 },
+		{ id: "inbox:x@y.z", email: "x@y.z", name: "Shared Sender", blocked: 0, seen: 5 },
+	]);
+	assert.deepEqual(scoped("team"), [
+		{ id: "team:only@team.z", email: "only@team.z", name: "Only Team", blocked: 0, seen: 4 },
+		{ id: "team:x@y.z", email: "x@y.z", name: "Shared Sender", blocked: 0, seen: 3 },
+	]);
+	assert.deepEqual(scoped("own"), [], "fa's mailbox exchanged no mail with these addresses");
+	// Legacy owner-wide rows stay (never read); unmatched ones get no mailbox copy.
+	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 5);
+	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE email = 'ghost@z.z' AND mailbox_id IS NOT NULL").get().n, 0);
+	const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'contacts'").all().map((row) => row.name);
+	assert.ok(indexes.includes("contacts_mailbox_email_idx"));
+	assert.ok(!indexes.includes("contacts_user_email_idx"));
+}
+
 function assertAuditAppendOnly(db) {
 	db.prepare("INSERT INTO audit_logs (id, actor_user_id, action, created_at) VALUES ('l2', 'admin', 'grant.set', 2)").run();
 	assert.throws(() => db.prepare("DELETE FROM audit_logs WHERE id = 'l1'").run(), /append-only/);
@@ -130,17 +162,18 @@ function assertAuditAppendOnly(db) {
 	assert.deepEqual(indexes.filter((name) => !name.startsWith("sqlite_")), ["audit_logs_actor_idx", "audit_logs_created_idx", "audit_logs_mailbox_idx"]);
 }
 
-test("0061+0062 via the runtime runner keep every row and backfill grants", async (t) => {
+test("0061-0063 via the runtime runner keep every row and backfill grants and contacts", async (t) => {
 	const { db, beforeCounts } = await migrate(t, async (database) => {
 		for (const name of FORK) cpSync(join(migrationsDirectory, name), join(before0061, name));
 		t.after(() => { for (const name of FORK) rmSync(join(before0061, name)); });
 		assert.deepEqual(await applyMigrations(database, before0061), FORK);
 	});
 	assertGrants(db, beforeCounts);
+	assertContactsPerMailbox(db);
 	assertAuditAppendOnly(db);
 });
 
-test("0061+0062 via the in-app bundle statements give the same result", async (t) => {
+test("0061-0063 via the in-app bundle statements give the same result", async (t) => {
 	const { db, beforeCounts } = await migrate(t, async (database) => {
 		const { migrations } = JSON.parse(readFileSync(join(root, "src/lib/migrations/bundle.json"), "utf8"));
 		for (const name of FORK) {
@@ -152,6 +185,7 @@ test("0061+0062 via the in-app bundle statements give the same result", async (t
 		}
 	});
 	assertGrants(db, beforeCounts);
+	assertContactsPerMailbox(db);
 	assertAuditAppendOnly(db);
 });
 

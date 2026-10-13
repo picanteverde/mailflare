@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 	if (!access?.canRead) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}
-	const storedContact = toContactDetails(await getContactByEmail(db, access.mailbox.userId, email));
+	const storedContact = toContactDetails(await getContactByEmail(db, access.mailbox.id, email));
 	const account = await getPersonalIdentityForAddress(db, access.mailbox.userId, email);
 	const contact = account
 		? {
@@ -76,6 +76,7 @@ export async function PATCH(request: Request) {
 	}
 	const contact = toContactDetails(await saveManualContactName(db, {
 		userId: access.mailbox.userId,
+		mailboxId: access.mailbox.id,
 		email,
 		displayName,
 	}));

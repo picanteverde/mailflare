@@ -49,7 +49,7 @@ Helpers (all in `src/lib/mailboxes/access.ts`, no cache, default deny):
 | /api/mailboxes/[id]/avatar | POST | A | `getAdminMailboxAccess` | ✔ | ✔ |
 | /api/mailboxes/[id]/access | * | A | Team-gated upstream route, writes kept in step | Phase 5 | ◐ |
 | /api/routing-rules (+[id]) | * | A | `getAdminMailboxAccess` | ✔ | ✔ |
-| /api/contacts | GET / PATCH | R / A | `getMailboxAccessLevel` / `getAdminMailboxAccess` | PATCH ✔ | ✔ |
+| /api/contacts | GET / PATCH | R / A | `getMailboxAccessLevel` / `getAdminMailboxAccess`; contacts **per mailbox** (0063: `contacts.mailbox_id`, every lookup scoped by it) | PATCH ✔ | ✔ |
 | /api/contacts/avatar | POST/DELETE | A | `getAdminMailboxAccess` | ✔ | ✔ |
 | /api/contacts/block | POST | A | `getAdminMailboxAccess` | ✔ | ✔ |
 | /api/agent/settings | PUT | A | `getAdminMailboxAccess` (agent is off in this deployment) | ✔ | ✔ |
@@ -87,5 +87,7 @@ Auth and session (`/api/auth/*`, `/api/settings/mfa/*`, password, profile, short
 - Phase 5: replace `/api/mailboxes/[id]/access` and creator grants with the admin grants API.
 - Phase 7: last-admin protection; API keys die with "revoke sessions" (`users.sessions_revoked_at`); granular admin flags (QA note): remove or map.
 - Audit phase: upstream `email.send` audit metadata includes the subject. The design note says subjects are never logged, so drop it there.
+
+Contacts (names, blocks, avatars, lastSeenAt, the spam engine's block lookup, list/thread sender names) are keyed by mailbox since 0063; `grep -rn "contacts.userId" src` is empty.
 
 `grep -rn "messages.userId" src` now shows only author checks (drafts, templates, agent draft tools) and the trash-retention cron (admins only); `mailboxes.userId` is used only as a storage key (contacts, folders, imports), never as an access rule.

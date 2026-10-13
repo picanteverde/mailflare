@@ -29,6 +29,9 @@ await build({
 			export { GET as listMailboxes } from "./src/app/api/mailboxes/route.ts";
 			export { PATCH as updateMailbox, DELETE as deleteMailbox } from "./src/app/api/mailboxes/[id]/route.ts";
 			export { PATCH as setTrashRetention } from "./src/app/api/settings/trash-retention/route.ts";
+			export { GET as getContact } from "./src/app/api/contacts/route.ts";
+			export { upsertContactFromAddress } from "./src/lib/contacts/service.ts";
+			export { GET as listThread } from "./src/app/api/messages/[messageId]/thread/route.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "access-routes-test-entry.ts",
@@ -184,4 +187,22 @@ test("the outbound queue re-checks send at dequeue", async (t) => {
 	assert.equal(job.status, "failed");
 	assert.match(job.error, /send permission/);
 	assert.equal(f.database.db.prepare("SELECT status FROM messages WHERE id = 'out'").get().status, "failed");
+});
+
+test("contacts are per mailbox: reading one mailbox reveals nothing learned by another", async (t) => {
+	const f = await fixture(t);
+	// Only the private mailbox has corresponded with secret@partner.z; team has seen shared@z.z too.
+	await m.upsertContactFromAddress(f.env, { userId: "admin", mailboxId: "private", address: "Secret Partner <secret@partner.z>", source: "inbound" });
+	await m.upsertContactFromAddress(f.env, { userId: "admin", mailboxId: "private", address: "Private Name <shared@z.z>", source: "inbound" });
+	await m.upsertContactFromAddress(f.env, { userId: "admin", mailboxId: "team", address: "Team Name <shared@z.z>", source: "inbound" });
+	const contact = async (address) => (await (await m.getContact(f.req("alice", `/api/contacts?mailboxId=team&address=${encodeURIComponent(address)}`))).json()).contact;
+	assert.deepEqual(await contact("secret@partner.z"), { email: "secret@partner.z", displayName: null, hasAvatar: false, source: null, blocked: false, lastSeenAt: null });
+	const shared = await contact("shared@z.z");
+	assert.equal(shared.displayName, "Team Name");
+	assert.equal(shared.mailboxId, "team");
+	assert.equal((await m.getContact(f.req("alice", "/api/contacts?mailboxId=private&address=secret%40partner.z"))).status, 404);
+	// Message lists name senders from the row's own mailbox only.
+	f.database.db.exec("INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, status, created_at) VALUES ('from-shared', 'admin', 'team', 'inbound', 'shared@z.z', 'team@ex.com', 'hi', 'received', 9)");
+	const rows = (await (await m.listMessages(f.req("alice", "/api/messages?mailboxId=team"))).json()).messages;
+	assert.equal(rows.find((row) => row.id === "from-shared").fromContactName, "Team Name");
 });

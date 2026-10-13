@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 	const [contact] = await db
 		.select({ avatarKey: contacts.avatarKey })
 		.from(contacts)
-		.where(and(eq(contacts.userId, access.mailbox.userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, access.mailbox.id), eq(contacts.email, email)))
 		.limit(1);
 	const avatarKey = account ? account.avatarKey : contact?.avatarKey;
 	if (!avatarKey) return new Response("Not found", { status: 404 });
@@ -69,23 +69,24 @@ export async function POST(request: Request) {
 	const [existing] = await db
 		.select({ id: contacts.id })
 		.from(contacts)
-		.where(and(eq(contacts.userId, access.mailbox.userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, access.mailbox.id), eq(contacts.email, email)))
 		.limit(1);
 	if (!existing) {
 		await db.insert(contacts).values({
-			id: getContactId(access.mailbox.userId, email),
+			id: getContactId(access.mailbox.id, email),
 			userId: access.mailbox.userId,
+			mailboxId: access.mailbox.id,
 			email,
 			source: "manual",
 		});
 	}
 
-	const key = contactAvatarKeyFor(access.mailbox.userId, email);
+	const key = contactAvatarKeyFor(access.mailbox.id, email);
 	await storeAvatarImages(env.BUCKET, key, images.full, images.preview);
 	await db
 		.update(contacts)
 		.set({ avatarKey: key })
-		.where(and(eq(contacts.userId, access.mailbox.userId), eq(contacts.email, email)));
+		.where(and(eq(contacts.mailboxId, access.mailbox.id), eq(contacts.email, email)));
 	return NextResponse.json({ ok: true });
 }
 
@@ -112,12 +113,12 @@ export async function DELETE(request: Request) {
 	const [contact] = await db
 		.select({ avatarKey: contacts.avatarKey })
 		.from(contacts)
-		.where(and(eq(contacts.userId, access.mailbox.userId), eq(contacts.email, email)))
+		.where(and(eq(contacts.mailboxId, access.mailbox.id), eq(contacts.email, email)))
 		.limit(1);
 	if (contact?.avatarKey) await deleteAvatarImages(env.BUCKET, contact.avatarKey);
 	await db
 		.update(contacts)
 		.set({ avatarKey: null })
-		.where(and(eq(contacts.userId, access.mailbox.userId), eq(contacts.email, email)));
+		.where(and(eq(contacts.mailboxId, access.mailbox.id), eq(contacts.email, email)));
 	return NextResponse.json({ ok: true });
 }

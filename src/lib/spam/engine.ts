@@ -28,7 +28,7 @@ export async function analyzeSpam(db: AppDatabase, input: SpamAnalysisInput): Pr
 		fingerprint,
 	}));
 
-	const [contact] = sender ? await db.select().from(contacts).where(and(eq(contacts.userId, input.userId), eq(contacts.email, sender))).limit(1) : [];
+	const [contact] = sender ? await db.select().from(contacts).where(and(eq(contacts.mailboxId, input.mailboxId), eq(contacts.email, sender))).limit(1) : [];
 	if (contact?.blocked) {
 		return { score: 100, verdict: "spam", signals: [{ id: "blocked_sender", score: 100, reason: "Sender is blocked" }], fingerprint };
 	}
