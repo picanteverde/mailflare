@@ -11,6 +11,7 @@ import {
   getActivityLabel,
   getActivityMetadata,
 } from "./utils";
+import { AccessHistory } from "./access-history";
 
 export default function ActivityPage() {
   const { t } = useLanguage();
@@ -102,6 +103,7 @@ export default function ActivityPage() {
           </tbody>
         </table>
       </section>
+      <AccessHistory />
     </div>
   );
 }

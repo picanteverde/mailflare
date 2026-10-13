@@ -118,9 +118,6 @@ export async function saveManagedAccount(account: ManagedAccount): Promise<void>
 			name: account.name,
 			role: account.role,
 			disabled: account.disabled,
-			canManageMailboxes: account.canManageMailboxes,
-			canManageDomains: account.canManageDomains,
-			canManageUsers: account.canManageUsers,
 			forwardingEmail: account.forwardingEmail,
 			password: account.newPassword || undefined,
 		}),
@@ -204,4 +201,39 @@ export async function removeManagedMailbox(mailboxId: string): Promise<void> {
 	const response = await authFetch(`/api/mailboxes/${mailboxId}`, { method: "DELETE" });
 	const data = (await response.json()) as { error?: string };
 	if (!response.ok) throw new Error(data.error ?? "Unable to remove mailbox");
+}
+
+/** picanteverde fork: every mailbox with this account's receive/send grant. */
+export type AccountGrant = { mailboxId: string; address: string; displayName: string | null; disabled: boolean; receive: boolean; send: boolean };
+
+export async function fetchAccountGrants(accountId: string): Promise<AccountGrant[]> {
+	const response = await authFetch(`/api/accounts/${accountId}/mailbox-access`);
+	const data = (await response.json()) as { mailboxes?: AccountGrant[]; error?: string };
+	if (!response.ok) throw new Error(data.error ?? "Unable to load mailbox access");
+	return data.mailboxes ?? [];
+}
+
+export async function saveAccountGrants(accountId: string, grants: { mailboxId: string; receive: boolean; send: boolean }[]): Promise<void> {
+	const response = await authFetch(`/api/accounts/${accountId}/mailbox-access`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ grants }),
+	});
+	const data = (await response.json()) as { error?: unknown };
+	if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Unable to save mailbox access");
+}
+
+/** picanteverde fork: account security actions; each ends every session and API key of the account. */
+async function accountAction(path: string, fallback: string): Promise<void> {
+	const response = await authFetch(path, { method: "DELETE" });
+	const data = (await response.json().catch(() => ({}))) as { error?: string };
+	if (!response.ok) throw new Error(data.error ?? fallback);
+}
+
+export function revokeAccountSessions(accountId: string): Promise<void> {
+	return accountAction(`/api/accounts/${accountId}/sessions`, "Unable to sign this account out");
+}
+
+export function resetAccountTotp(accountId: string): Promise<void> {
+	return accountAction(`/api/accounts/${accountId}/totp`, "Unable to reset two-factor authentication");
 }

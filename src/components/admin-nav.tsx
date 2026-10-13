@@ -7,7 +7,6 @@ import {
   Mail,
   Settings,
   Palette,
-  BadgeDollarSign,
   Users,
   Route,
   Webhook,
@@ -68,7 +67,7 @@ const sections: { id?: string; labelKey?: TranslationKey; links: AdminNavLink[] 
     labelKey: "admin.nav.product",
     links: [
       { href: "/branding", labelKey: "admin.nav.branding", icon: Palette, permission: "primary" },
-      { href: "/licenses", labelKey: "admin.nav.licenses", icon: BadgeDollarSign, permission: "primary" },
+      // picanteverde fork: accounts and sharing need no license here, so the License page is hidden.
     ],
   },
 ];
@@ -101,8 +100,8 @@ export function AdminNav({ className }: { className?: string }) {
     if (!link.permission) return true;
     if (!user) return false;
     if (link.permission === "primary") return user.isPrimaryAdmin;
-    if (link.permission === "domains") return user.isPrimaryAdmin || user.canManageDomains;
-    return user.isPrimaryAdmin || user.canManageUsers;
+    if (link.permission === "domains") return user.role === "admin"; // picanteverde fork: all-or-nothing admin
+    return user.role === "admin";
   }
 
   return (

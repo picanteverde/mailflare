@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeDollarSign, Bot, Globe2, KeyRound, Mail, Palette, Users } from "lucide-react";
+import { Bot, Globe2, KeyRound, Mail, Palette, Users } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import type { TranslationKey } from "@/lib/i18n/types";
 import { AdminUpdateCard } from "@/components/admin-update-card";
@@ -44,13 +44,7 @@ const sections: AdminSection[] = [
 		icon: Palette,
 		permission: "primary",
 	},
-	{
-		href: "/licenses",
-		titleKey: "admin.nav.licenses",
-		descriptionKey: "admin.section.licenses",
-		icon: BadgeDollarSign,
-		permission: "primary",
-	},
+	// picanteverde fork: License page hidden (accounts and sharing need no license here).
 	{
 		href: "/accounts",
 		titleKey: "admin.nav.accounts",
@@ -86,8 +80,8 @@ export default function AdminSettingsPage() {
 		if (!section.permission) return true;
 		if (!user) return false;
 		if (section.permission === "primary") return user.isPrimaryAdmin;
-		if (section.permission === "domains") return user.isPrimaryAdmin || user.canManageDomains;
-		return user.isPrimaryAdmin || user.canManageUsers;
+		if (section.permission === "domains") return user.role === "admin"; // picanteverde fork: all-or-nothing admin
+		return user.role === "admin";
 	}
 
 	return (

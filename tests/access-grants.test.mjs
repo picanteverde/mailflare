@@ -21,6 +21,9 @@ await build({
 			export { GET as accountGrants, PUT as putAccountGrants } from "./src/app/api/accounts/[id]/mailbox-access/route.ts";
 			export { GET as mailboxGrants, PUT as putMailboxGrants } from "./src/app/api/mailboxes/[id]/access/route.ts";
 			export { POST as createMailbox } from "./src/app/api/mailboxes/route.ts";
+			export { GET as listMailboxes } from "./src/app/api/mailboxes/route.ts";
+			export { GET as getMailbox } from "./src/app/api/mailboxes/[id]/route.ts";
+			export { GET as auditLogs } from "./src/app/api/audit-logs/route.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "access-grants-test-entry.ts",
@@ -152,4 +155,18 @@ test("creating a mailbox is admin-only, grants nobody implicitly, and can grant 
 	assert.equal((await create("admin", { domainId: "d", localPart: "x", grants: [{ userId: "alice", receive: false, send: true }] })).status, 400);
 	assert.equal((await create("admin", { domainId: "d", localPart: "ghost", grants: [{ userId: "nobody", receive: true, send: false }] })).status, 404);
 	assert.equal(f.database.db.prepare("SELECT count(*) AS n FROM mailboxes WHERE local_part = 'ghost'").get().n, 0, "a bad grant leaves no mailbox behind");
+});
+
+test("admin screens: every mailbox listed and its settings readable without a grant; history is primary-only", async (t) => {
+	const f = await fixture(t);
+	const all = await m.listMailboxes(f.req("admin", "/api/mailboxes?all=1"));
+	assert.deepEqual((await all.json()).mailboxes.map((row) => row.id).sort(), ["ceo", "sales", "support"]);
+	assert.equal((await m.listMailboxes(f.req("alice", "/api/mailboxes?all=1"))).status, 403);
+	assert.deepEqual((await (await m.listMailboxes(f.req("admin", "/api/mailboxes"))).json()).mailboxes, [], "the mail view still lists grants only");
+	assert.equal((await m.getMailbox(f.req("admin", "/api/mailboxes/sales"), f.params("sales"))).status, 200);
+	assert.equal((await m.getMailbox(f.req("alice", "/api/mailboxes/sales"), f.params("sales"))).status, 404);
+	await m.putAccountGrants(f.req("admin", "/api/accounts/alice/mailbox-access", "PUT", { grants: [{ mailboxId: "sales", receive: true, send: false }] }), f.params("alice"));
+	const history = await (await m.auditLogs(f.req("admin", "/api/audit-logs?kind=access"))).json();
+	assert.deepEqual(history.auditLogs.map((row) => [row.action, row.targetEmail, row.mailboxLocalPart]), [["grant.set", "alice@ex.com", "sales"]]);
+	assert.equal((await m.auditLogs(f.req("alice", "/api/audit-logs?kind=access"))).status, 403);
 });

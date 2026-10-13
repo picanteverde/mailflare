@@ -5,9 +5,11 @@ export type ManagedAccount = {
 	role: "admin" | "user";
 	isPrimaryAdmin: boolean;
 	disabled: boolean;
-	canManageMailboxes: boolean;
-	canManageDomains: boolean;
-	canManageUsers: boolean;
+	/** picanteverde fork: kept optional for the upstream flags; the server ignores them. */
+	canManageMailboxes?: boolean;
+	canManageDomains?: boolean;
+	canManageUsers?: boolean;
+	totpEnabled?: boolean;
 	forwardingEmail: string | null;
 	canForwardEmail: boolean;
 	hasAvatar: boolean;

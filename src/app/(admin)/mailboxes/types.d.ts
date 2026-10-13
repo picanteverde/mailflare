@@ -1,4 +1,6 @@
 export type Mailbox = {
+	/** picanteverde fork: shown on the admin list. */
+	disabled?: boolean;
 	id: string;
 	localPart: string;
 	displayName: string | null;

@@ -17,8 +17,9 @@ export async function GET(request: Request, { params }: MailboxRouteParams) {
 	const env = getEnv();
 	const user = await requireUser(env, request);
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, id);
-	if (!access?.canRead) {
+	// picanteverde fork: mailbox settings are also visible to admins without a mail grant.
+	const access = (await getMailboxAccessLevel(db, user, id)) ?? (await getAdminMailboxAccess(db, user, id));
+	if (!access) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}
 	const [mailbox] = await selectMailboxForUser(db, user.id, id);

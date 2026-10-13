@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AtSign, Save, Trash2, UserPlus } from "lucide-react";
+import { AtSign, Save, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
@@ -25,13 +25,14 @@ import {
   deleteMailboxAlias,
   fetchMailbox,
   fetchMailboxAliases,
-  fetchSharedInboxAccess,
+  fetchMailboxGrants,
   getMailboxAddress,
-  grantSharedInboxAccess,
-  revokeSharedInboxAccess,
+  saveMailboxGrants,
   updateMailboxSettings,
 } from "./utils";
 import MailboxAvatarForm from "./MailboxAvatarForm";
+import { GrantsTable, type GrantEdit } from "@/components/access/grants-table";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function MailboxSettingsPage() {
   const { t } = useLanguage();
@@ -40,7 +41,7 @@ export default function MailboxSettingsPage() {
   const qc = useQueryClient();
   const [displayName, setDisplayName] = useState("");
   const [useAllDomains, setUseAllDomains] = useState(true);
-  const [selectedUserId, setSelectedUserId] = useState("");
+  const currentUser = useCurrentUser();
   const [aliasLocalPart, setAliasLocalPart] = useState("");
   const [aliasDomainId, setAliasDomainId] = useState("");
 
@@ -96,22 +97,26 @@ export default function MailboxSettingsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["mailbox", mailboxId, "aliases"] }),
   });
 
-  const sharedAccess = useQuery({
+  // picanteverde fork: access is per account (receive/send) on every mailbox, edited here or on
+  // the account's page; the server re-checks admin and audits each change.
+  const grants = useQuery({
     queryKey: ["mailbox", mailboxId, "access"],
-    queryFn: () => fetchSharedInboxAccess(mailboxId),
-    enabled: mailbox.data?.type === "shared",
+    queryFn: () => fetchMailboxGrants(mailboxId),
+    enabled: !!mailboxId,
   });
-  const addMember = useMutation({
-    mutationFn: () => grantSharedInboxAccess(mailboxId, selectedUserId),
-    onSuccess: async () => {
-      setSelectedUserId("");
-      await qc.invalidateQueries({ queryKey: ["mailbox", mailboxId, "access"] });
-    },
-  });
-  const removeMember = useMutation({
-    mutationFn: (userId: string) => revokeSharedInboxAccess(mailboxId, userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mailbox", mailboxId, "access"] }),
-  });
+  const grantRows = (grants.data ?? []).map((account) => ({
+    key: account.userId,
+    label: account.name,
+    sublabel: account.email,
+    note: [account.userId === currentUser?.id ? t("access.youBadge") : null, account.role === "admin" ? t("access.adminBadge") : null, account.disabled ? t("access.accountDisabled") : null].filter(Boolean).join(" · ") || undefined,
+    receive: account.receive,
+    send: account.send,
+  }));
+  async function saveGrants(changes: GrantEdit[]) {
+    await saveMailboxGrants(mailboxId, changes.map(({ key, receive, send }) => ({ userId: key, receive, send })));
+    await qc.invalidateQueries({ queryKey: ["mailbox", mailboxId, "access"] });
+    await qc.invalidateQueries({ queryKey: ["mailboxes"] });
+  }
 
   const address = mailbox.data ? getMailboxAddress(mailbox.data) : "";
 
@@ -131,9 +136,6 @@ export default function MailboxSettingsPage() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {mailbox.data?.type === "shared" && (
-            <Badge variant="secondary">{t("mailboxes.shared")}</Badge>
-          )}
           {mailbox.data?.isPrimary && (
             <Badge variant="secondary">{t("mailbox.primary")}</Badge>
           )}
@@ -294,86 +296,21 @@ export default function MailboxSettingsPage() {
         </CardContent>
       </Card>
 
-      {mailbox.data?.type === "shared" && (
-        <Card className="rounded-3xl border-0 bg-white p-6">
-          <CardHeader className="py-0">
-            <CardTitle>{t("mailbox.sharedAccess")}</CardTitle>
-            <CardDescription>
-              {t("mailbox.sharedAccessDescription")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-5">
-            {sharedAccess.isLoading && <Skeleton className="h-16 w-full rounded-2xl" />}
-            {(sharedAccess.data?.members ?? []).map((member) => (
-              <div
-                key={member.userId}
-                className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-50 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-neutral-900">
-                    {member.userName}
-                  </p>
-                  <p className="truncate text-xs text-neutral-500">{member.userEmail}</p>
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={t("mailbox.removeAddress", { address: member.userName })}
-                  disabled={removeMember.isPending}
-                  onClick={() => removeMember.mutate(member.userId)}
-                >
-                  <Trash2 className="h-4 w-4 text-red-600" />
-                </Button>
-              </div>
-            ))}
-            {sharedAccess.data && sharedAccess.data.members.length === 0 && (
-              <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
-                {t("mailbox.noMembers")}
-              </p>
-            )}
-            {sharedAccess.isError && (
-              <p className="text-sm text-red-600">
-                {sharedAccess.error instanceof Error
-                  ? sharedAccess.error.message
-                  : t("mailbox.sharedLoadFailed")}
-              </p>
-            )}
-            <div className="flex gap-2">
-              <Select
-                value={selectedUserId}
-                onChange={(event) => setSelectedUserId(event.target.value)}
-                className="h-10 min-w-0 flex-1 text-sm"
-              >
-                <option value="">{t("mailbox.chooseAccount")}</option>
-                {(sharedAccess.data?.availableUsers ?? [])
-                  .filter(
-                    (account) =>
-                      !sharedAccess.data?.members.some((member) => member.userId === account.id),
-                  )
-                  .map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} ({account.email})
-                    </option>
-                  ))}
-              </Select>
-              <Button
-                type="button"
-                disabled={!selectedUserId || addMember.isPending}
-                onClick={() => addMember.mutate()}
-              >
-                <UserPlus className="h-4 w-4" />
-                {addMember.isPending ? t("account.mailboxes.adding") : t("mailbox.addUser")}
-              </Button>
-            </div>
-            {addMember.isError && (
-              <p className="text-sm text-red-600">
-                {addMember.error instanceof Error ? addMember.error.message : t("mailbox.accountAddFailed")}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <Card className="rounded-3xl border-0 bg-white p-6">
+        <CardHeader className="py-0">
+          <CardTitle>{t("access.mailboxTitle")}</CardTitle>
+          <CardDescription>{t("access.mailboxDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-5">
+          {grants.isError ? (
+            <p className="text-sm text-red-600">
+              {grants.error instanceof Error ? grants.error.message : t("access.loadFailed")}
+            </p>
+          ) : (
+            <GrantsTable rows={grantRows} loading={grants.isLoading} itemNoun={t("access.accountNoun")} onSave={saveGrants} />
+          )}
+        </CardContent>
+      </Card>
       <Card className="rounded-3xl border-0 bg-white p-6">
         <CardHeader className="py-0">
           <CardTitle className="text-red-700">{t("mailbox.dangerZone")}</CardTitle>

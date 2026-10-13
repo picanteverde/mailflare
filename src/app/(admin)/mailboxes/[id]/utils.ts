@@ -1,6 +1,6 @@
 import { authFetch } from "@/lib/auth/client";
 import { clearMailboxesCache } from "@/components/mailbox-provider-utils";
-import type { MailboxAliasesResponse, MailboxDetail, MailboxDetailResponse, SharedInboxAccessResponse } from "./types";
+import type { MailboxAliasesResponse, MailboxDetail, MailboxDetailResponse } from "./types";
 
 export function getMailboxAddress(mailbox: Pick<MailboxDetail, "localPart" | "hostname">): string {
 	return `${mailbox.localPart}@${mailbox.hostname}`;
@@ -36,29 +36,24 @@ export async function updateMailboxSettings(
 	return json.mailbox;
 }
 
-export async function fetchSharedInboxAccess(id: string): Promise<SharedInboxAccessResponse> {
+/** picanteverde fork: every account with its receive/send grant on this mailbox. */
+export type MailboxGrant = { userId: string; email: string; name: string; role: "admin" | "user"; disabled: boolean; receive: boolean; send: boolean };
+
+export async function fetchMailboxGrants(id: string): Promise<MailboxGrant[]> {
 	const res = await authFetch(`/api/mailboxes/${id}/access`);
-	const json = (await res.json()) as SharedInboxAccessResponse;
-	if (!res.ok) throw new Error(json.error ?? "Failed to load shared inbox access");
-	return json;
+	const json = (await res.json()) as { accounts?: MailboxGrant[]; error?: string };
+	if (!res.ok) throw new Error(json.error ?? "Failed to load access");
+	return json.accounts ?? [];
 }
 
-export async function grantSharedInboxAccess(id: string, userId: string): Promise<void> {
+export async function saveMailboxGrants(id: string, grants: { userId: string; receive: boolean; send: boolean }[]): Promise<void> {
 	const res = await authFetch(`/api/mailboxes/${id}/access`, {
-		method: "POST",
+		method: "PUT",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ userId, permission: "full_access" }),
+		body: JSON.stringify({ grants }),
 	});
-	const json = (await res.json()) as { error?: string };
-	if (!res.ok) throw new Error(json.error ?? "Failed to add account");
-}
-
-export async function revokeSharedInboxAccess(id: string, userId: string): Promise<void> {
-	const res = await authFetch(`/api/mailboxes/${id}/access?userId=${encodeURIComponent(userId)}`, {
-		method: "DELETE",
-	});
-	const json = (await res.json()) as { error?: string };
-	if (!res.ok) throw new Error(json.error ?? "Failed to remove account");
+	const json = (await res.json()) as { error?: unknown };
+	if (!res.ok) throw new Error(typeof json.error === "string" ? json.error : "Failed to save access");
 }
 
 export async function fetchMailboxAliases(id: string): Promise<MailboxAliasesResponse> {

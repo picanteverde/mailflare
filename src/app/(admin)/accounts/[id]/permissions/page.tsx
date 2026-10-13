@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
@@ -113,61 +112,8 @@ export default function AccountPermissionsPage() {
 						: t("account.permissions.onlyPrimaryRoles")}
 				</p>
 			</section>
-			<div className="overflow-hidden rounded-3xl bg-white">
-				<table className="w-full text-left">
-					<thead className="border-b border-neutral-100 bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-						<tr>
-							<th className="px-5 py-3">{t("account.permissions.permission")}</th>
-							<th className="w-28 px-5 py-3 text-center">{t("account.permissions.allowed")}</th>
-						</tr>
-					</thead>
-					<tbody className="divide-y divide-neutral-100">
-						<tr>
-							<td className="px-5 py-4">
-								<p className="text-sm font-semibold text-neutral-900">{t("account.permissions.manageMailboxes")}</p>
-								<p className="mt-1 text-xs text-neutral-500">{t("account.permissions.manageMailboxesHint")}</p>
-							</td>
-							<td className="px-5 py-4 text-center">
-								<Checkbox
-									aria-label={t("account.permissions.allowMailboxes")}
-									checked={account?.canManageMailboxes ?? false}
-									disabled={!account || !editable}
-									onChange={(event) => account && setAccount({ ...account, canManageMailboxes: event.target.checked })}
-								/>
-							</td>
-						</tr>
-						<tr>
-							<td className="px-5 py-4">
-								<p className="text-sm font-semibold text-neutral-900">{t("account.permissions.manageDomains")}</p>
-								<p className="mt-1 text-xs text-neutral-500">{t("account.permissions.manageDomainsHint")}</p>
-							</td>
-							<td className="px-5 py-4 text-center">
-								<Checkbox
-									aria-label={t("account.permissions.allowDomains")}
-									checked={account?.canManageDomains ?? false}
-									disabled={!account || !account.canChangeRole}
-									onChange={(event) => account && setAccount({ ...account, canManageDomains: event.target.checked })}
-								/>
-							</td>
-						</tr>
-						<tr>
-							<td className="px-5 py-4">
-								<p className="text-sm font-semibold text-neutral-900">{t("account.permissions.manageUsers")}</p>
-								<p className="mt-1 text-xs text-neutral-500">{t("account.permissions.manageUsersHint")}</p>
-							</td>
-							<td className="px-5 py-4 text-center">
-								<Checkbox
-									aria-label={t("account.permissions.allowUsers")}
-									checked={account?.canManageUsers ?? false}
-									disabled={!account || !account.canChangeRole}
-									onChange={(event) => account && setAccount({ ...account, canManageUsers: event.target.checked })}
-								/>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-			{editable && (
+			{/* picanteverde fork: admin is all-or-nothing; the granular upstream permissions are gone. */}
+			{editable && account?.canChangeRole && (
 				<Button onClick={() => void savePermissions()} disabled={saving}>
 					{saving ? t("common.saving") : t("account.permissions.save")}
 				</Button>

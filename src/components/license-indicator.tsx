@@ -8,7 +8,16 @@ import type { LicenseStatus } from "@/lib/licenses/types";
 import { loadLicenseIndicatorStatus } from "./license-indicator-utils";
 import { LICENSE_STATUS_CHANGED_EVENT } from "@/lib/licenses/constants";
 
+/**
+ * picanteverde fork: no license upsell. Accounts, mailbox sharing and grants need no license
+ * here, so the header "Upgrade" button is not shown. The upstream component is kept below,
+ * unused, to keep upstream syncs simple.
+ */
 export function LicenseIndicator() {
+	return null;
+}
+
+export function UpstreamLicenseIndicator() {
 	const { t } = useLanguage();
 	const [license, setLicense] = useState<LicenseStatus | null>(null);
 

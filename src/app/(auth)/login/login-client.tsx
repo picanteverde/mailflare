@@ -142,8 +142,11 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
           <Input
             id="email"
             name="email"
-            type="email"
-            autoComplete="email"
+            type="text"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoComplete="username"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "login-error" : undefined}
             required

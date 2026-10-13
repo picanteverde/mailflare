@@ -9,13 +9,18 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { ProgressiveAvatarImage } from "@/components/progressive-avatar-image";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/access/confirm-dialog";
 import type { ManagedAccount } from "./types";
 import {
 	fetchManagedAccount,
 	getManagedAccountAvatarUrl,
+	resetAccountTotp,
+	revokeAccountSessions,
 	saveManagedAccount,
 	uploadManagedAccountAvatar,
 } from "./utils";
+
+type PendingAction = "disable" | "revoke" | "totp" | null;
 
 export default function AccountDetailsPage() {
 	const { t } = useLanguage();
@@ -24,19 +29,27 @@ export default function AccountDetailsPage() {
 	const [saving, setSaving] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [avatarVersion, setAvatarVersion] = useState(0);
+	const [savedDisabled, setSavedDisabled] = useState<boolean | null>(null);
+	const [pending, setPending] = useState<PendingAction>(null);
 
 	useEffect(() => {
 		void fetchManagedAccount(id)
-			.then(setAccount)
+			.then((loaded) => { setAccount(loaded); setSavedDisabled(loaded.disabled); })
 			.catch((error) => setMessage(error instanceof Error ? error.message : t("account.loadFailed")));
 	}, [id, t]);
 
-	async function saveDetails() {
+	async function saveDetails(confirmed = false) {
 		if (!account) return;
+		// picanteverde fork: disabling signs the account out everywhere, so it gets a confirm step.
+		if (!confirmed && account.disabled && savedDisabled === false) {
+			setPending("disable");
+			return;
+		}
 		setSaving(true);
 		setMessage(null);
 		try {
 			await saveManagedAccount(account);
+			setSavedDisabled(account.disabled);
 			setMessage(t("account.updated"));
 		} catch (error) {
 			setMessage(error instanceof Error ? error.message : t("account.updateFailed"));
@@ -88,7 +101,7 @@ export default function AccountDetailsPage() {
 					)}
 				</div>
 				<div className="space-y-2">
-					<Label htmlFor="account-email">{t("auth.email")}</Label>
+					<Label htmlFor="account-email">{t("access.createLogin")}</Label>
 					<Input id="account-email" value={account.email} readOnly className="bg-neutral-50 text-neutral-500" />
 				</div>
 				<div className="space-y-2">
@@ -130,7 +143,44 @@ export default function AccountDetailsPage() {
 					</Button>
 				)}
 			</section>
+			{account.editable && (
+				<section className="space-y-4 rounded-3xl bg-white p-6">
+					<div>
+						<h2 className="text-base font-semibold text-neutral-900">{t("access.security")}</h2>
+						<p className="mt-1 text-sm text-neutral-500">{t("access.securityDescription")}</p>
+						<p className="mt-2 text-sm text-neutral-700">{account.totpEnabled ? t("access.totpOn") : t("access.totpOff")}</p>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<Button type="button" variant="outline" onClick={() => setPending("revoke")}>{t("access.revokeSessions")}</Button>
+						<Button type="button" variant="outline" disabled={!account.totpEnabled} onClick={() => setPending("totp")}>{t("access.resetTotp")}</Button>
+					</div>
+				</section>
+			)}
 			{message && <p role="status" className="text-sm text-neutral-500">{message}</p>}
+			<ConfirmDialog
+				open={pending === "disable"}
+				title={t("account.enabled")}
+				description={t("access.disableConfirm", { name: account.name })}
+				confirmLabel={t("access.confirm")}
+				onOpenChange={(open) => { if (!open) setPending(null); }}
+				onConfirm={() => saveDetails(true)}
+			/>
+			<ConfirmDialog
+				open={pending === "revoke"}
+				title={t("access.revokeSessions")}
+				description={t("access.revokeSessionsConfirm", { name: account.name })}
+				confirmLabel={t("access.revokeSessions")}
+				onOpenChange={(open) => { if (!open) setPending(null); }}
+				onConfirm={async () => { await revokeAccountSessions(account.id); setMessage(t("access.done")); }}
+			/>
+			<ConfirmDialog
+				open={pending === "totp"}
+				title={t("access.resetTotp")}
+				description={t("access.resetTotpConfirm", { name: account.name })}
+				confirmLabel={t("access.resetTotp")}
+				onOpenChange={(open) => { if (!open) setPending(null); }}
+				onConfirm={async () => { await resetAccountTotp(account.id); setAccount({ ...account, totpEnabled: false }); setMessage(t("access.done")); }}
+			/>
 		</div>
 	);
 }

@@ -105,6 +105,11 @@ All are written to `audit_logs` with `actor_user_id`, `target_user_id`, `mailbox
 
 An admin resetting **another admin's** password or TOTP (`target_is_admin: true`) is the main event to watch. The admin audit view highlights it.
 
+## 7a. Grants API notes
+
+- Grant changes are possible only from an admin browser session (TOTP + Origin rule B), through `src/lib/mailboxes/grants.ts`. There is deliberately **no API-key (v1/MCP) grants endpoint**, so a leaked key can never widen access (QA, 7a review). Add one only for a concrete automation need, with a separate admin-scoped key type and the same audit.
+- Two admins editing the same (account, mailbox) pair at the same moment can record a stale `previous` in the audit row; the stored grant is still the last write.
+
 ## 8. Release gate
 
 Phases 1–9 go only to the fork and to a **staging worker** with synthetic seed data. Production `mailflare` is touched only in Phase 10, after the Phase 9 test matrix passes and QA signs off. Phase 6 removes the license gates, so shipping it before Phase 4 closes the bypasses would hand new accounts the leaky routes.

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { createMailboxForAdmin } from "@/lib/mailboxes/create";
 import { accountErrorResponse } from "@/app/api/accounts/utils";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
-import { and } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { mailboxes } from "@/db/schema";
+import { domains, mailboxes } from "@/db/schema";
 import { listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { requireUser } from "@/lib/auth/cookies";
 import { getLicenseEntitlements } from "@/lib/licenses/service";
@@ -17,6 +17,17 @@ export async function GET(request: Request) {
 	const env = getEnv();
 	const user = await requireUser(env, request);
 	const db = getDb(env);
+	// picanteverde fork: the admin Mailboxes page lists every mailbox (settings, not mail) so
+	// admins can manage and grant mailboxes they hold no grant on. Role re-read via requireUser.
+	if (new URL(request.url).searchParams.get("all") === "1") {
+		if (user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+		const all = await db
+			.select({ id: mailboxes.id, localPart: mailboxes.localPart, displayName: mailboxes.displayName, disabled: mailboxes.disabled, avatarKey: mailboxes.avatarKey, hostname: domains.hostname, domainId: mailboxes.domainId })
+			.from(mailboxes)
+			.innerJoin(domains, eq(domains.id, mailboxes.domainId))
+			.orderBy(asc(domains.hostname), asc(mailboxes.localPart));
+		return NextResponse.json({ mailboxes: all.map(({ avatarKey, ...mailbox }) => ({ ...mailbox, hasAvatar: !!avatarKey, type: "shared" as const })) });
+	}
 	// picanteverde fork: no silent personal mailbox; an account sees only what it is granted.
 	const rows = await listAccessibleMailboxes(db, user);
 	const entitlements = await getLicenseEntitlements(env);

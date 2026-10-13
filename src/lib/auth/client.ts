@@ -10,6 +10,7 @@ import type {
 
 const SESSION_STORAGE_KEY = "mailflare-session-token";
 export const AUTH_SESSION_CHANGED_EVENT = "mailflare:auth-session-changed";
+export const TOTP_ENROLLMENT_PATH = "/settings/security";
 
 function dispatchAuthSessionChanged(authenticated: boolean): void {
 	if (typeof window === "undefined") return;
@@ -60,6 +61,12 @@ export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions
 	if (response.status === 401 && redirectOnUnauthorized && typeof window !== "undefined") {
 		clearClientSessionToken();
 		window.location.assign("/login");
+	}
+	// picanteverde fork: TOTP is mandatory. Until the account enrolls, every other API answers
+	// 403 totp_enrollment_required; send the browser to the enrollment page (once).
+	if (response.status === 403 && typeof window !== "undefined" && window.location.pathname !== TOTP_ENROLLMENT_PATH) {
+		const body = (await response.clone().json().catch(() => null)) as { code?: string } | null;
+		if (body?.code === "totp_enrollment_required") window.location.assign(TOTP_ENROLLMENT_PATH);
 	}
 
 	return response;

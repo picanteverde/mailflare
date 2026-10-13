@@ -7,6 +7,14 @@ import { assertPrimaryAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 
+/** picanteverde fork: account, credential, grant and backup events (access design §7). */
+const ACCESS_ACTIONS = [
+	"account.create", "account.update", "account.role_change", "account.disable", "account.enable", "account.primary_transfer",
+	"credentials.password_reset", "credentials.totp_reset", "session.revoke",
+	"grant.set", "grant.revoke", "mailbox.create",
+	"backup.download", "backup.restore",
+];
+
 export async function GET(request: Request) {
 	const env = getEnv();
 	const admin = await requireUser(env, request);
@@ -36,7 +44,7 @@ export async function GET(request: Request) {
 		.leftJoin(targetUsers, eq(targetUsers.id, auditLogs.targetUserId))
 		.leftJoin(mailboxes, eq(mailboxes.id, auditLogs.mailboxId))
 		.leftJoin(domains, eq(domains.id, mailboxes.domainId))
-		.where(inArray(auditLogs.action, ["auth.login", "auth.logout"]))
+		.where(inArray(auditLogs.action, url.searchParams.get("kind") === "access" ? ACCESS_ACTIONS : ["auth.login", "auth.logout"]))
 		.orderBy(desc(auditLogs.createdAt))
 		.limit(limit);
 

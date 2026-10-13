@@ -17,8 +17,9 @@ export async function GET(request: Request, { params }: MailboxAvatarRouteParams
 	const env = getEnv();
 	const user = await requireUser(env, request);
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, id);
-	if (!access?.canRead) return new Response("Not found", { status: 404 });
+	// picanteverde fork: the mailbox picture is a setting, also shown to admins without a grant.
+	const access = (await getMailboxAccessLevel(db, user, id)) ?? (await getAdminMailboxAccess(db, user, id));
+	if (!access) return new Response("Not found", { status: 404 });
 
 	const [mailbox] = await db
 		.select({
