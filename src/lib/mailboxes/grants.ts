@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { auditLogs, domains, mailboxAccess, mailboxes, users } from "@/db/schema";
 import { AccountAdminError } from "@/lib/accounts/admin";
 import { newId } from "@/lib/ids";
+import { notifyGrantsChanged } from "@/lib/realtime/utils";
 
 /*
  * picanteverde fork: the admin grants API (access design §1, §7). Every grant change goes
@@ -121,11 +122,13 @@ export async function applyGrantChanges(env: CloudflareEnv, actorId: string, cha
 	const now = new Date();
 	const statements: BatchItem<"sqlite">[] = [];
 	let changed = 0;
+	const changedUserIds: string[] = [];
 	for (const change of changes) {
 		const previousRow = previousByPair.get(`${change.userId}\u0000${change.mailboxId}`);
 		const previous = { receive: !!previousRow?.receive, send: !!previousRow?.send };
 		if (previous.receive === change.receive && previous.send === change.send) continue;
 		changed += 1;
+		changedUserIds.push(change.userId);
 		const self = change.userId === actor.id;
 		if (!change.receive) {
 			if (previousRow) statements.push(db.delete(mailboxAccess).where(eq(mailboxAccess.id, previousRow.id)));
@@ -149,5 +152,6 @@ export async function applyGrantChanges(env: CloudflareEnv, actorId: string, cha
 	}
 	if (statements.length === 0) return { changed: 0 };
 	await db.batch(statements as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+	await notifyGrantsChanged(env, changedUserIds);
 	return { changed };
 }

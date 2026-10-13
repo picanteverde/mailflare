@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 import {
 	clearMailboxesCache,
+	GRANTS_CHANGED_EVENT,
 	fetchMailboxOptions,
 	isIdentityMailbox,
 	SELECTED_MAILBOX_STORAGE_KEY,
@@ -63,35 +64,52 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		let cancelled = false;
-		const sessionToken = getClientSessionToken();
+		let lastReload = 0;
 
-		fetchMailboxOptions()
-			.then((items) => {
-				if (cancelled || sessionToken !== getClientSessionToken()) return;
-				setMailboxes(items);
+		function load() {
+			const sessionToken = getClientSessionToken();
+			fetchMailboxOptions()
+				.then((items) => {
+					if (cancelled || sessionToken !== getClientSessionToken()) return;
+					setMailboxes(items);
 
-				const storedId = localStorage.getItem(SELECTED_MAILBOX_STORAGE_KEY);
-				if (storedId) {
-					const found = items.find((mb) => mb.id === storedId);
-					if (found) {
-						setSelectedMailboxState(found);
-						return;
+					const storedId = localStorage.getItem(SELECTED_MAILBOX_STORAGE_KEY);
+					if (storedId) {
+						const found = items.find((mb) => mb.id === storedId);
+						if (found) {
+							setSelectedMailboxState(found);
+							return;
+						}
 					}
-				}
 
-				const primary = items.find((mb) => mb.isPrimary) ?? items[0] ?? null;
-				if (primary) {
+					// picanteverde fork: the stored mailbox may no longer be granted; fall back to a
+					// granted one, or to none.
+					const primary = items.find((mb) => mb.isPrimary) ?? items[0] ?? null;
 					setSelectedMailboxState(primary);
-					localStorage.setItem(SELECTED_MAILBOX_STORAGE_KEY, primary.id);
-				}
-			})
-			.catch(() => {})
-			.finally(() => {
-				if (!cancelled && sessionToken === getClientSessionToken()) setIsLoading(false);
-			});
+					if (primary) localStorage.setItem(SELECTED_MAILBOX_STORAGE_KEY, primary.id);
+					else localStorage.removeItem(SELECTED_MAILBOX_STORAGE_KEY);
+				})
+				.catch(() => {})
+				.finally(() => {
+					if (!cancelled && sessionToken === getClientSessionToken()) setIsLoading(false);
+				});
+		}
 
+		// picanteverde fork: grants changed (realtime event, or a 403/404 on a mailbox request):
+		// drop the cache and ask the server again, at most every few seconds.
+		function reloadAfterGrantChange() {
+			const now = Date.now();
+			if (now - lastReload < 3_000) return;
+			lastReload = now;
+			clearMailboxesCache();
+			load();
+		}
+
+		load();
+		window.addEventListener(GRANTS_CHANGED_EVENT, reloadAfterGrantChange);
 		return () => {
 			cancelled = true;
+			window.removeEventListener(GRANTS_CHANGED_EVENT, reloadAfterGrantChange);
 		};
 	}, []);
 

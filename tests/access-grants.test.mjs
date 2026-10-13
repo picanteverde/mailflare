@@ -24,6 +24,10 @@ await build({
 			export { GET as listMailboxes } from "./src/app/api/mailboxes/route.ts";
 			export { GET as getMailbox } from "./src/app/api/mailboxes/[id]/route.ts";
 			export { GET as auditLogs } from "./src/app/api/audit-logs/route.ts";
+			export { DELETE as deleteMailbox } from "./src/app/api/mailboxes/[id]/route.ts";
+			export { GET as listMessages } from "./src/app/api/messages/route.ts";
+			export { getUserMailRevision } from "./src/lib/realtime/revision.ts";
+			export { getMailboxNotificationUserIds } from "./src/lib/realtime/utils.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "access-grants-test-entry.ts",
@@ -169,4 +173,38 @@ test("admin screens: every mailbox listed and its settings readable without a gr
 	const history = await (await m.auditLogs(f.req("admin", "/api/audit-logs?kind=access"))).json();
 	assert.deepEqual(history.auditLogs.map((row) => [row.action, row.targetEmail, row.mailboxLocalPart]), [["grant.set", "alice@ex.com", "sales"]]);
 	assert.equal((await m.auditLogs(f.req("alice", "/api/audit-logs?kind=access"))).status, 403);
+});
+
+test("grant changes tell exactly the affected accounts' open tabs (no mail data in the event)", async (t) => {
+	const f = await fixture(t);
+	const signals = [];
+	f.env.REALTIME = { getByName: (userId) => ({ fetch: async (url, init) => { signals.push({ userId, path: new URL(url).pathname, body: init?.body }); return new Response(null, { status: 204 }); } }) };
+	await m.putMailboxGrants(f.req("admin", "/api/mailboxes/ceo/access", "PUT", { grants: [
+		{ userId: "alice", receive: true, send: false },
+		{ userId: "bob", receive: false, send: false },
+	] }), f.params("ceo"));
+	assert.deepEqual(signals, [{ userId: "alice", path: "/notify", body: JSON.stringify({ type: "grants_changed" }) }], "bob had nothing to change");
+	signals.length = 0;
+	await m.putMailboxGrants(f.req("admin", "/api/mailboxes/ceo/access", "PUT", { grants: [{ userId: "alice", receive: true, send: false }] }), f.params("ceo"));
+	assert.deepEqual(signals, [], "a no-op signals nobody");
+	// Deleting a mailbox tells everyone who could see it.
+	await m.putMailboxGrants(f.req("admin", "/api/mailboxes/support/access", "PUT", { grants: [{ userId: "alice", receive: true, send: false }, { userId: "bob", receive: true, send: true }] }), f.params("support"));
+	signals.length = 0;
+	assert.equal((await m.deleteMailbox(f.req("admin", "/api/mailboxes/support", "DELETE"), f.params("support"))).status, 200);
+	assert.deepEqual(signals.map((signal) => signal.userId).sort(), ["alice", "bob"]);
+});
+
+test("revoking during an open session: list, realtime revision and push targets drop the mailbox at once", async (t) => {
+	const f = await fixture(t);
+	f.database.db.exec("INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, subject, status, created_at) VALUES ('mail', 'admin', 'sales', 'inbound', 'x@y.z', 'sales@ex.com', 's', 'received', 1)");
+	await m.putAccountGrants(f.req("admin", "/api/accounts/alice/mailbox-access", "PUT", { grants: [{ mailboxId: "sales", receive: true, send: false }] }), f.params("alice"));
+	const listed = async () => (await (await m.listMessages(f.req("alice", "/api/messages"))).json()).messages.map((row) => row.id);
+	assert.deepEqual(await listed(), ["mail"]);
+	assert.match(await m.getUserMailRevision(f.env, "alice"), /sales/);
+	assert.deepEqual(await m.getMailboxNotificationUserIds(f.env, "sales"), ["alice"]);
+	// Revoke while alice's session stays open.
+	await m.putAccountGrants(f.req("admin", "/api/accounts/alice/mailbox-access", "PUT", { grants: [{ mailboxId: "sales", receive: false, send: false }] }), f.params("alice"));
+	assert.deepEqual(await listed(), []);
+	assert.doesNotMatch(await m.getUserMailRevision(f.env, "alice"), /sales/, "the socket's next revision ping drops it");
+	assert.deepEqual(await m.getMailboxNotificationUserIds(f.env, "sales"), [], "no new-mail event or push for it");
 });

@@ -52,3 +52,19 @@ export async function notifyUsersOfNewMessage(
 		...(payload.type === "agent_draft" ? [] : [sendPushNotifications(env, userIds, payload)]),
 	]);
 }
+
+/**
+ * picanteverde fork: tell each account's open tabs that its mailbox grants changed, so they
+ * drop the mailbox list cache and refetch (a revoked mailbox disappears within seconds). The
+ * event carries no mailbox ids or mail data; the tab asks the server what it may see now.
+ */
+export async function notifyGrantsChanged(env: CloudflareEnv, userIds: string[]): Promise<void> {
+	if (!env.REALTIME || userIds.length === 0) return;
+	await Promise.allSettled([...new Set(userIds)].map((userId) =>
+		env.REALTIME.getByName(userId).fetch("https://mailflare-realtime/notify", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ type: "grants_changed" }),
+		}),
+	));
+}

@@ -16,6 +16,9 @@ export function isIdentityMailbox(mailbox: Pick<MailboxOption, "type" | "isPrima
 	return mailbox.type === "personal" && !!mailbox.isPrimary;
 }
 
+/** picanteverde fork: fired when this account's mailbox grants may have changed (realtime or a 403/404). */
+export const GRANTS_CHANGED_EVENT = "mailflare:grants-changed";
+
 export function clearMailboxesCache() {
 	cacheGeneration += 1;
 	mailboxesCache = null;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { GRANTS_CHANGED_EVENT } from "@/components/mailbox-provider-utils";
 import {
 	AUTH_SESSION_CHANGED_EVENT,
 	getClientSessionToken,
@@ -74,6 +75,13 @@ export function useMessagePolling(): MessageRealtimeState {
 						dispatchMessagesChanged();
 						if (fromSocket) channel?.postMessage({ type: "refresh" } satisfies RealtimeChannelMessage);
 					}
+					return;
+				}
+				// picanteverde fork: this account's mailbox grants changed; refetch what it may see.
+				if (parsed.type === "grants_changed") {
+					window.dispatchEvent(new CustomEvent(GRANTS_CHANGED_EVENT));
+					dispatchMessagesChanged();
+					if (fromSocket) channel?.postMessage({ type: "notification", payload } satisfies RealtimeChannelMessage);
 					return;
 				}
 				if (parsed.type === "agent_draft" && parsed.draftId && parsed.mailboxId) {

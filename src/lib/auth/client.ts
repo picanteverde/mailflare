@@ -62,6 +62,12 @@ export async function authFetch(input: RequestInfo | URL, init: AuthFetchOptions
 		clearClientSessionToken();
 		window.location.assign("/login");
 	}
+	// picanteverde fork: a mailbox request that is now refused may mean a grant was revoked;
+	// let the mailbox list refresh itself (the provider throttles this).
+	if ((response.status === 403 || response.status === 404) && typeof window !== "undefined") {
+		const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+		if (/mailboxId=|\/api\/mailboxes\/|\/api\/messages\//.test(url)) window.dispatchEvent(new CustomEvent("mailflare:grants-changed"));
+	}
 	// picanteverde fork: TOTP is mandatory. Until the account enrolls, every other API answers
 	// 403 totp_enrollment_required; send the browser to the enrollment page (once).
 	if (response.status === 403 && typeof window !== "undefined" && window.location.pathname !== TOTP_ENROLLMENT_PATH) {

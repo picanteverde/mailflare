@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/db";
-import { mailboxes, users } from "@/db/schema";
+import { mailboxAccess, mailboxes, users } from "@/db/schema";
+import { notifyGrantsChanged } from "@/lib/realtime/utils";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { can, getAdminMailboxAccess, getMailboxAccessLevel } from "@/lib/mailboxes/access";
@@ -136,6 +137,9 @@ export async function DELETE(request: Request, { params }: MailboxRouteParams) {
 		return NextResponse.json({ error: message }, { status: 502 });
 	}
 
+	// Tell everyone who could see it, so their tabs drop it right away.
+	const holders = await db.select({ userId: mailboxAccess.userId }).from(mailboxAccess).where(eq(mailboxAccess.mailboxId, id));
 	await db.delete(mailboxes).where(eq(mailboxes.id, id));
+	await notifyGrantsChanged(env, holders.map((holder) => holder.userId));
 	return NextResponse.json({ ok: true });
 }
