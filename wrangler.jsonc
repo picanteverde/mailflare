@@ -117,4 +117,43 @@
 			},
 		],
 	},
+	// picanteverde fork: Phase 9 staging (synthetic data only). Build and deploy with
+	// CLOUDFLARE_ENV=staging. Bindings are not inherited, so each one points at a *-staging
+	// resource; nothing here touches production. Reachable only from MAILFLARE_SETUP_IP (WAF).
+	"env": {
+		"staging": {
+			"name": "mailflare-staging",
+			"workers_dev": false,
+			"preview_urls": false,
+			"routes": [{ "pattern": "mail-staging.picanteverde.app", "custom_domain": true }],
+			"services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "mailflare-staging" }],
+			"durable_objects": { "bindings": [{ "name": "REALTIME", "class_name": "RealtimeHub" }] },
+			"images": { "binding": "IMAGES" },
+			"ratelimits": [
+				{ "name": "LOGIN_RATE_LIMIT", "namespace_id": "2101", "simple": { "limit": 20, "period": 60 } },
+				{ "name": "AGENT_RATE_LIMIT", "namespace_id": "2102", "simple": { "limit": 120, "period": 60 } },
+			],
+			// No real outbound mail: the binding can only deliver to this one verified address.
+			"send_email": [{ "name": "EMAIL", "destination_address": "picanteverde@gmail.com" }],
+			"d1_databases": [{
+				"binding": "DB",
+				"database_name": "mailflare-staging",
+				"database_id": "0e8da697-edbd-4720-ae58-7e51bf670817",
+				"migrations_dir": "drizzle/migrations",
+			}],
+			"r2_buckets": [{ "binding": "BUCKET", "bucket_name": "mailflare-staging-raw" }],
+			"queues": {
+				"producers": [
+					{ "binding": "INBOUND_QUEUE", "queue": "mailflare-staging-inbound" },
+					{ "binding": "OUTBOUND_QUEUE", "queue": "mailflare-staging-outbound" },
+					{ "binding": "AGENT_QUEUE", "queue": "mailflare-staging-agent" },
+				],
+				"consumers": [
+					{ "queue": "mailflare-staging-inbound", "max_batch_size": 5, "max_retries": 3 },
+					{ "queue": "mailflare-staging-outbound", "max_batch_size": 5, "max_retries": 3 },
+					{ "queue": "mailflare-staging-agent", "max_batch_size": 1, "max_retries": 3 },
+				],
+			},
+		},
+	},
 }

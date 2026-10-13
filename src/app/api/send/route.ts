@@ -14,7 +14,9 @@ import { userOwnsDraft } from "@/app/api/drafts/utils";
 
 export async function POST(request: Request) {
 	const env = getEnv();
-	const user = await requireUser(env, request);
+	// picanteverde fork: a signed-out or disabled account gets 401, not a 500 from the throw.
+	const user = await requireUser(env, request).catch(() => null);
+	if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	let input;
 	try {
 		input = await parseSendRequest(request);

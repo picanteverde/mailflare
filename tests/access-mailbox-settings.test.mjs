@@ -21,6 +21,7 @@ await build({
 			export { POST as sendRoute } from "./src/app/api/send/route.ts";
 			export { POST as createWebhook } from "./src/app/api/webhooks/route.ts";
 			export { PATCH as updateWebhook, DELETE as deleteWebhook } from "./src/app/api/webhooks/[id]/route.ts";
+			export { POST as restoreRoute } from "./src/app/api/backups/restore/route.ts";
 		`,
 		resolveDir: root,
 		sourcefile: "access-settings-test-entry.ts",
@@ -111,4 +112,14 @@ test("webhook audit rows carry the host only, never a secret path or query", asy
 	assert.match(metadata, /hooks\.slack\.example/);
 	assert.match(metadata, /discord\.example/);
 	assert.match(metadata, /"urlChanged":true/);
+});
+
+test("in-app restore is off and points to the runbook; a disabled account's send is 401", async (t) => {
+	const f = await fixture(t);
+	const response = await m.restoreRoute(f.req("admin", "/api/backups/restore", "POST", {}));
+	assert.equal(response.status, 410);
+	assert.equal((await response.json()).code, "restore_disabled");
+	f.database.db.exec("UPDATE users SET disabled = 1 WHERE id = 'alice'");
+	assert.equal((await m.sendRoute(f.req("alice", "/api/send", "POST", { mailboxId: "sales", from: "sales@ex.com", to: "x@y.z", subject: "s", text: "t" }))).status, 401);
+	assert.equal(f.sent.length, 0);
 });

@@ -150,10 +150,7 @@ export default function BackupsPage() {
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content align="end" sideOffset={6} className="z-50 min-w-48 rounded-lg border border-neutral-200 bg-white p-1 text-sm shadow-lg">
-                <DropdownMenu.Item disabled={restore.isPending} onSelect={() => restoreInput.current?.click()} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                  <Upload className="h-4 w-4" />
-                  {restore.isPending ? t("backups.restoring") : t("backups.restore")}
-                </DropdownMenu.Item>
+                {/* picanteverde fork: in-app restore is off (D1 limits); see docs/picanteverde-disaster-recovery.md. */}
                 <DropdownMenu.Item disabled={!settings || autoSaveSettings.isPending} onSelect={() => setSettingsOpen(true)} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-neutral-900 outline-none hover:bg-neutral-100 focus:bg-neutral-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                   <Settings className="h-4 w-4" />
                   {t("backups.settings")}

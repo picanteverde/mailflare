@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
-import { assertPrimaryAdmin } from "@/lib/auth/admin";
-import { requireUser } from "@/lib/auth/cookies";
-import { restoreDatabaseRecords } from "@/lib/backups/export";
-import { getEnv } from "@/lib/cloudflare";
 
-export async function POST(request: Request) {
-	const env = getEnv();
-	try {
-		const user = await requireUser(env, request);
-		assertPrimaryAdmin(user);
-		const form = await request.formData();
-		const file = form.get("backup");
-		if (!(file instanceof File)) return NextResponse.json({ error: "Choose a backup file" }, { status: 400 });
-		await restoreDatabaseRecords(env.DB, await file.arrayBuffer(), { actorUserId: user.id });
-		return NextResponse.json({ ok: true });
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "Failed to restore backup";
-		return NextResponse.json({ error: message }, { status: 400 });
-	}
+/*
+ * picanteverde fork: in-app restore is turned off (Phase 9, QA). On Cloudflare D1 one atomic
+ * restore over a database that already holds mail exceeds the D1 CPU limit at a few thousand
+ * messages (staging: 5k messages failed every time, safely, with nothing changed). A button
+ * that reliably fails on any real mailbox is worse than none. Disaster recovery is D1 Time
+ * Travel plus the R2 copy job: docs/picanteverde-disaster-recovery.md. The in-app backup
+ * (export) stays. restoreDatabaseRecords() is kept for tests and the runbook.
+ */
+export async function POST() {
+	return NextResponse.json(
+		{ error: "In-app restore is turned off on this server. Use the disaster recovery runbook (D1 Time Travel).", code: "restore_disabled" },
+		{ status: 410 },
+	);
 }
