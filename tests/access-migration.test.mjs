@@ -5,10 +5,11 @@ import test, { after } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
-// picanteverde fork: migration 0061 (mailbox grants) on a database shaped like today's.
+// picanteverde fork: migrations 0061 (mailbox grants) and 0062 (standalone audit log)
+// on a database shaped like today's.
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDirectory = join(root, "drizzle/migrations");
-const GRANTS = "0061_mailbox_grants.sql";
+const FORK = ["0061_mailbox_grants.sql", "0062_audit_logs_standalone.sql"];
 const scratch = mkdtempSync(join(root, "node_modules", "mailflare-access-migration-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
@@ -35,7 +36,7 @@ const { SqliteDatabase, applyMigrations } = await import(pathToFileURL(join(scra
 // A copy of the migrations directory that stops at 0060.
 const before0061 = join(scratch, "migrations");
 cpSync(migrationsDirectory, before0061, { recursive: true });
-rmSync(join(before0061, GRANTS));
+for (const name of FORK) rmSync(join(before0061, name));
 
 const COUNTED = ["users", "domains", "mailboxes", "messages", "audit_logs", "sessions"];
 const counts = (db) => Object.fromEntries(COUNTED.map((table) => [table, db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
@@ -73,7 +74,7 @@ function seed(db) {
 	`);
 }
 
-/** Runs 0000→0060 through the runtime runner, seeds, then applies 0061 via `apply`. */
+/** Runs 0000→0060 through the runtime runner, seeds, then applies the fork migrations via `apply`. */
 async function migrate(t, apply) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
@@ -118,39 +119,45 @@ function assertAuditAppendOnly(db) {
 	assert.throws(() => db.prepare("UPDATE audit_logs SET action = 'x' WHERE id = 'l1'").run(), /append-only/);
 	assert.throws(() => db.prepare("UPDATE audit_logs SET metadata = NULL WHERE id = 'l1'").run(), /append-only/);
 	assert.throws(() => db.prepare("UPDATE audit_logs SET actor_user_id = 'ro' WHERE id = 'l1'").run(), /append-only/);
-	// Removing a referenced message still works: its FK action only nulls the reference.
+	assert.throws(() => db.prepare("UPDATE audit_logs SET actor_user_id = NULL WHERE id = 'l1'").run(), /append-only/);
+	// The audit log has no foreign keys: removing what a row refers to leaves the row as written.
+	assert.equal(db.prepare("SELECT count(*) AS n FROM pragma_foreign_key_list('audit_logs')").get().n, 0);
 	db.exec("PRAGMA foreign_keys = ON");
 	db.prepare("DELETE FROM messages WHERE id = 'm3'").run();
-	const row = db.prepare("SELECT message_id, action FROM audit_logs WHERE id = 'l1'").get();
-	assert.deepEqual({ ...row }, { message_id: null, action: "mailbox.share" });
+	const row = db.prepare("SELECT actor_user_id, message_id, action FROM audit_logs WHERE id = 'l1'").get();
+	assert.deepEqual({ ...row }, { actor_user_id: "admin", message_id: "m3", action: "mailbox.share" });
+	const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'audit_logs'").all().map((r) => r.name).sort();
+	assert.deepEqual(indexes.filter((name) => !name.startsWith("sqlite_")), ["audit_logs_actor_idx", "audit_logs_created_idx", "audit_logs_mailbox_idx"]);
 }
 
-test("0061 via the runtime runner keeps every row and backfills grants", async (t) => {
+test("0061+0062 via the runtime runner keep every row and backfill grants", async (t) => {
 	const { db, beforeCounts } = await migrate(t, async (database) => {
-		cpSync(join(migrationsDirectory, GRANTS), join(before0061, GRANTS));
-		t.after(() => rmSync(join(before0061, GRANTS)));
-		assert.deepEqual(await applyMigrations(database, before0061), [GRANTS]);
+		for (const name of FORK) cpSync(join(migrationsDirectory, name), join(before0061, name));
+		t.after(() => { for (const name of FORK) rmSync(join(before0061, name)); });
+		assert.deepEqual(await applyMigrations(database, before0061), FORK);
 	});
 	assertGrants(db, beforeCounts);
 	assertAuditAppendOnly(db);
 });
 
-test("0061 via the in-app bundle statements gives the same result", async (t) => {
+test("0061+0062 via the in-app bundle statements give the same result", async (t) => {
 	const { db, beforeCounts } = await migrate(t, async (database) => {
 		const { migrations } = JSON.parse(readFileSync(join(root, "src/lib/migrations/bundle.json"), "utf8"));
-		const migration = migrations.find((candidate) => candidate.name === GRANTS);
-		assert.ok(migration, "run `npm run db:bundle` first");
-		database.db.exec("BEGIN");
-		for (const statement of migration.statements) database.db.exec(statement);
-		database.db.exec("COMMIT");
+		for (const name of FORK) {
+			const migration = migrations.find((candidate) => candidate.name === name);
+			assert.ok(migration, `${name} missing from the bundle: run \`npm run db:bundle\` first`);
+			database.db.exec("BEGIN");
+			for (const statement of migration.statements) database.db.exec(statement);
+			database.db.exec("COMMIT");
+		}
 	});
 	assertGrants(db, beforeCounts);
 	assertAuditAppendOnly(db);
 });
 
-test("0061 is the last migration and is listed in the journal", () => {
+test("the fork migrations come last and are listed in the journal", () => {
 	const files = readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql")).sort();
-	assert.equal(files.at(-1), GRANTS);
+	assert.deepEqual(files.slice(-FORK.length), FORK);
 	const journal = JSON.parse(readFileSync(join(migrationsDirectory, "meta/_journal.json"), "utf8"));
-	assert.equal(journal.entries.at(-1).tag, "0061_mailbox_grants");
+	assert.deepEqual(journal.entries.slice(-FORK.length).map((entry) => `${entry.tag}.sql`), FORK);
 });

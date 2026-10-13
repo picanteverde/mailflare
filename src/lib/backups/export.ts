@@ -1,5 +1,6 @@
 import type { BackupTableGroupId, DatabaseBackupDocument, DatabaseBackupTable, DatabaseRecord } from "./types";
 import { mergeLegacyMessageBodies } from "./utils";
+import { newId } from "@/lib/ids";
 import { BACKUP_TABLE_GROUPS, getSelectedBackupTables } from "./table-groups";
 
 const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "shared_attachment_links", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings", "email_templates", "calendar_events", "booking_events", "auto_reply_deliveries", "spam_token_stats", "spam_reputation", "spam_feedback", "mailbox_aliases", "password_reset_tokens", "mfa_recovery_codes", "login_challenges", "mailbox_agent_settings", "agent_conversations", "agent_chat_messages", "agent_jobs", "agent_draft_metadata", "agent_send_approvals", "mcp_key_mailboxes", 'ai_usage'];
@@ -9,7 +10,6 @@ const BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "
  * optional here and are filled in as empty on restore.
  */
 const REQUIRED_BACKUP_TABLES: DatabaseBackupTable[] = ["users", "domains", "mailboxes", "mailbox_access", "contacts", "folders", "api_keys", "messages", "message_attachments", "outbound_jobs", "routing_rules", "webhooks", "webhook_deliveries", "sessions", "audit_logs", "backup_settings", "backups", "app_settings", "license_settings"];
-const INSERT_BATCH_SIZE = 50;
 
 export function getBackupConfigurationStatus(_env?: CloudflareEnv) {
 	return { configured: true, missing: [] };
@@ -73,7 +73,13 @@ export async function exportDatabaseRecords(db: D1Database, excludedGroups: Back
 	return new TextEncoder().encode(JSON.stringify(document));
 }
 
-export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffer): Promise<void> {
+/**
+ * picanteverde fork: restore is one atomic batch. Either every table is replaced
+ * or nothing changes. The audit log is append-only, so it is never deleted: the
+ * backup's audit rows are merged in with INSERT OR IGNORE, current rows are kept,
+ * and the restore itself is recorded as `backup.restore`.
+ */
+export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffer, options: { actorUserId?: string | null } = {}): Promise<void> {
 	const document = parseDatabaseBackup(content);
 	if (document.includedTables && !BACKUP_TABLE_GROUPS.every((group) => group.tables.some((table) => document.includedTables?.includes(table)))) throw new Error("This backup contains selected table groups only. Restore requires a backup that includes every table group.");
 	mergeLegacyMessageBodies(document);
@@ -86,15 +92,21 @@ export async function restoreDatabaseRecords(db: D1Database, content: ArrayBuffe
 	const restoreTables = BACKUP_TABLES.filter((table) => (table !== "shared_attachment_links" || sharedLinksTable) && (table !== "booking_events" || bookingTable));
 	const userColumns = new Set((await db.prepare("PRAGMA table_info(users)").all<{ name: string }>()).results.map((column) => column.name));
 	const bookingColumns = bookingTable ? new Set((await db.prepare("PRAGMA table_info(booking_events)").all<{ name: string }>()).results.map((column) => column.name)) : null;
-	for (const table of [...restoreTables].reverse()) await db.prepare(`DELETE FROM ${table}`).run();
-	for (const table of restoreTables) {
-		const rows = document.tables[table] ?? [];
-		for (let index = 0; index < rows.length; index += INSERT_BATCH_SIZE) {
-			const columns = table === "users" ? userColumns : table === "booking_events" ? bookingColumns : null;
-			const statements = rows.slice(index, index + INSERT_BATCH_SIZE).map((row) => createInsertStatement(db, table, row, columns));
-			if (statements.length > 0) await db.batch(statements);
-		}
+	// Build every statement first, so an invalid record fails before anything is deleted.
+	const statements: D1PreparedStatement[] = [];
+	for (const table of [...restoreTables].reverse()) {
+		if (table !== "audit_logs") statements.push(db.prepare(`DELETE FROM ${table}`));
 	}
+	for (const table of restoreTables) {
+		const columns = table === "users" ? userColumns : table === "booking_events" ? bookingColumns : null;
+		for (const row of document.tables[table] ?? []) statements.push(createInsertStatement(db, table, row, columns, table === "audit_logs"));
+	}
+	statements.push(
+		db
+			.prepare("INSERT INTO audit_logs (id, actor_user_id, action, metadata, created_at) VALUES (?, ?, 'backup.restore', ?, ?)")
+			.bind(newId("aud"), options.actorUserId ?? null, JSON.stringify({ backupCreatedAt: document.createdAt ?? null }), Math.floor(Date.now() / 1000)),
+	);
+	await db.batch(statements);
 }
 
 function parseDatabaseBackup(content: ArrayBuffer): DatabaseBackupDocument {
@@ -118,12 +130,12 @@ function isDatabaseBackupDocument(value: unknown): value is DatabaseBackupDocume
 	});
 }
 
-function createInsertStatement(db: D1Database, table: DatabaseBackupTable, row: DatabaseRecord, availableColumns: Set<string> | null = null) {
+function createInsertStatement(db: D1Database, table: DatabaseBackupTable, row: DatabaseRecord, availableColumns: Set<string> | null = null, ignoreExisting = false) {
 	const columns = Object.keys(row).filter((column) => !availableColumns || availableColumns.has(column));
 	if (columns.length === 0) throw new Error(`Backup contains an invalid ${table} record`);
 	const placeholders = columns.map(() => "?").join(", ");
 	const identifiers = columns.map((column) => `\`${column.replaceAll("`", "``")}\``).join(", ");
-	return db.prepare(`INSERT INTO ${table} (${identifiers}) VALUES (${placeholders})`).bind(...columns.map((column) => row[column]));
+	return db.prepare(`INSERT${ignoreExisting ? " OR IGNORE" : ""} INTO ${table} (${identifiers}) VALUES (${placeholders})`).bind(...columns.map((column) => row[column]));
 }
 
 /** Backups written before a table joined BACKUP_TABLES simply omit it. */

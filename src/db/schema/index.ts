@@ -645,10 +645,11 @@ export const auditLogs = sqliteTable(
 	"audit_logs",
 	{
 		id: text("id").primaryKey(),
-		actorUserId: text("actor_user_id").references(() => users.id, { onDelete: "set null" }),
-		targetUserId: text("target_user_id").references(() => users.id, { onDelete: "set null" }),
-		mailboxId: text("mailbox_id").references(() => mailboxes.id, { onDelete: "set null" }),
-		messageId: text("message_id").references(() => messages.id, { onDelete: "set null" }),
+		// picanteverde fork: no foreign keys (0062). Append-only, enforced by triggers; ids are historical.
+		actorUserId: text("actor_user_id"),
+		targetUserId: text("target_user_id"),
+		mailboxId: text("mailbox_id"),
+		messageId: text("message_id"),
 		action: text("action").notNull(),
 		metadata: text("metadata"),
 		createdAt: integer("created_at", { mode: "timestamp" })

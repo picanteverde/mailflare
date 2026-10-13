@@ -82,7 +82,9 @@ The route-by-route inventory (Phase 4) lists every handler with the row above th
 
 ## 7. Audit events
 
-The audit log is **admin-read-only and append-only**. No API updates or deletes `audit_logs` rows (backup restore included). Migration 0061 adds SQLite triggers that reject any `DELETE` and any `UPDATE`, except the foreign-key actions that null out a reference to a removed user, mailbox or message.
+The audit log is **admin-read-only and append-only**. No API updates or deletes `audit_logs` rows, backup restore included. Migration 0062 rebuilds `audit_logs` without foreign keys: its ids are historical and stay as written even after the user, mailbox or message is gone. Its triggers then reject **every** `UPDATE` and `DELETE`. (With the old FKs, a trigger could not tell an `ON DELETE SET NULL` action from a manual `UPDATE … SET actor_user_id = NULL`. Dropping the FKs removes that gap.)
+
+Backup restore runs as **one atomic batch**: either every table is replaced or nothing changes. It never deletes `audit_logs`. The backup's audit rows are merged with `INSERT OR IGNORE` (current rows win), and the restore itself is recorded as `backup.restore`.
 
 All are written to `audit_logs` with `actor_user_id`, `target_user_id`, `mailbox_id` (if any), `action`, JSON `metadata` and a timestamp. Mail bodies and subjects are never logged.
 
@@ -106,6 +108,8 @@ An admin resetting **another admin's** password or TOTP (`target_is_admin: true`
 ## 8. Release gate
 
 Phases 1–9 go only to the fork and to a **staging worker** with synthetic seed data. Production `mailflare` is touched only in Phase 10, after the Phase 9 test matrix passes and QA signs off. Phase 6 removes the license gates, so shipping it before Phase 4 closes the bypasses would hand new accounts the leaky routes.
+
+Before migrating production in Phase 10, count and list its `mailbox_access` rows. Upstream ignored them unless `type='shared'` with a Team license, but after 0061 every row grants R (or R+S). Any unexpected row is reviewed with picanteverde first.
 
 No copies of production mail go to staging. If a production D1 copy is ever needed for the migration count comparison, it is used only for that, deleted right after, and the deletion is posted in Teams.
 

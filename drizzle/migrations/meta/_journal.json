@@ -379,6 +379,13 @@
       "when": 1788850802023,
       "tag": "0061_mailbox_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "6",
+      "when": 1788850803023,
+      "tag": "0062_audit_logs_standalone",
+      "breakpoints": true
     }
   ]
 }
