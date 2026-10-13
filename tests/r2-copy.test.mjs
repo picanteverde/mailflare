@@ -9,8 +9,8 @@ import { build } from "esbuild";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const directory = mkdtempSync(join(root, "node_modules", "mailflare-r2-copy-"));
 after(() => rmSync(directory, { recursive: true, force: true }));
-await build({ entryPoints: [join(root, "tools/r2-copy/worker.ts")], outfile: join(directory, "worker.mjs"), bundle: true, platform: "node", format: "esm", target: "node24", logLevel: "silent" });
-const { runCopy } = await import(pathToFileURL(join(directory, "worker.mjs")).href);
+await build({ entryPoints: [join(root, "tools/r2-copy/copy.ts")], outfile: join(directory, "copy.mjs"), bundle: true, platform: "node", format: "esm", target: "node24", logLevel: "silent" });
+const { runCopy } = await import(pathToFileURL(join(directory, "copy.mjs")).href);
 
 /** Minimal in-memory R2: list (sorted, cursor), head, get, put; a lock refuses overwrites under a prefix. */
 function fakeBucket({ lockedPrefixes = [] } = {}) {
@@ -143,9 +143,14 @@ test("errors are recorded in the summary and do not stop the pass", async () => 
 	assert.equal(s.firstErrors[0].key, "mail/0003.eml");
 });
 
-test("the copy worker never deletes and has no HTTP handler", () => {
-	const source = readFileSync(join(root, "tools/r2-copy/worker.ts"), "utf8");
-	assert.doesNotMatch(source, /\.delete\(/);
-	assert.doesNotMatch(source, /\bfetch\s*\(/);
-	assert.doesNotMatch(source, /async fetch\b|fetch:/);
+test("the copy worker never deletes, has no fetch handler, and its RPC run() only steps the copy", () => {
+	const main = readFileSync(join(root, "tools/r2-copy/worker.ts"), "utf8");
+	const copy = readFileSync(join(root, "tools/r2-copy/copy.ts"), "utf8");
+	assert.doesNotMatch(main + copy, /\.delete\(/);
+	assert.doesNotMatch(main + copy, /async fetch\b|fetch:/);
+	// Named exports of the main module are entrypoints: only the RPC class and the default handler.
+	assert.deepEqual([...main.matchAll(/^export (?:class|async function|function|const) (\w+)/gm)].map((m) => m[1]), ["CopyEntrypoint"]);
+	const runMethod = main.slice(main.indexOf("async run()"), main.indexOf("export default"));
+	assert.match(runMethod, /runCopy\(this\.env\)/);
+	assert.doesNotMatch(runMethod, /BACKUP|SOURCE|\.get\(|\.put\(|\.list\(/, "run() returns counts only");
 });
