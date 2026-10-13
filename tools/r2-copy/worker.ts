@@ -8,10 +8,13 @@
  *   checks that). Objects deleted from the source stay in the copy.
  * - Locked keys are never overwritten: a new key is copied to `raw/<key>`; if the source object
  *   later changes (new etag), the new version goes to `versions/<etag>/<key>`.
- * - A full pass runs once per UTC day, continued across cron invocations with a cursor kept in
- *   `_state/` (the only prefix outside the bucket lock). Each finished pass writes
- *   `manifests/<date>.json` (what was copied) and `_state/last-summary.json` (counts, errors),
- *   which the bot checks and reports to Teams.
+ * - A pass is continued across cron invocations with a cursor kept in `_state/` (the only prefix
+ *   outside the bucket lock). A new pass starts only once the previous one is done and its UTC day
+ *   has passed, so an unfinished pass is never restarted (QA): if the bucket outgrows one day's
+ *   capacity, the pass simply spans days, and `_state/pass.json` shows it (startedAt, done) so the
+ *   bot can alert on passes longer than 24h.
+ * - Each run that copied something writes `manifests/<pass day>/<run>.json` (its keys); each
+ *   finished pass writes `_state/last-summary.json` (counts, errors), which the bot checks.
  */
 
 export interface Env {
@@ -22,17 +25,22 @@ export interface Env {
 }
 
 type State = {
+	/** UTC day the pass started; it keeps this day until done, however many days it spans. */
 	day: string;
 	cursor: string | null;
 	done: boolean;
 	startedAt: string;
+	run: number;
 	listed: number;
 	copied: number;
 	versioned: number;
 	bytes: number;
+	errorCount: number;
+	/** The first MAX_ERRORS errors only, so the state file stays small. */
 	errors: { key: string; error: string }[];
-	copiedKeys: string[];
 };
+
+const MAX_ERRORS = 100;
 
 const STATE_KEY = "_state/pass.json";
 const SUMMARY_KEY = "_state/last-summary.json";
@@ -47,10 +55,10 @@ async function readState(env: Env): Promise<State | null> {
 }
 
 function freshState(now: Date): State {
-	return { day: utcDay(now), cursor: null, done: false, startedAt: now.toISOString(), listed: 0, copied: 0, versioned: 0, bytes: 0, errors: [], copiedKeys: [] };
+	return { day: utcDay(now), cursor: null, done: false, startedAt: now.toISOString(), run: 0, listed: 0, copied: 0, versioned: 0, bytes: 0, errorCount: 0, errors: [] };
 }
 
-async function copyOne(env: Env, state: State, key: string, etag: string): Promise<void> {
+async function copyOne(env: Env, state: State, copiedKeys: string[], key: string, etag: string): Promise<void> {
 	const target = `raw/${key}`;
 	const existing = await env.BACKUP.head(target);
 	if (existing && existing.customMetadata?.sourceEtag === etag) return;
@@ -62,7 +70,7 @@ async function copyOne(env: Env, state: State, key: string, etag: string): Promi
 		httpMetadata: source.httpMetadata,
 		customMetadata: { ...source.customMetadata, sourceEtag: etag, copiedAt: new Date().toISOString() },
 	});
-	state.copiedKeys.push(destination);
+	copiedKeys.push(destination);
 	state.bytes += source.size;
 	if (existing) state.versioned += 1;
 	else state.copied += 1;
@@ -71,30 +79,31 @@ async function copyOne(env: Env, state: State, key: string, etag: string): Promi
 /** One cron invocation: continue today's pass, or start a new one on a new UTC day. */
 export async function runCopy(env: Env, now = new Date()): Promise<State> {
 	let state = await readState(env);
-	if (!state || state.day !== utcDay(now)) state = freshState(now);
+	// Only a finished pass gives way to a new one, and at most once per UTC day.
+	if (!state || (state.done && state.day !== utcDay(now))) state = freshState(now);
 	if (state.done) return state;
 
 	const batch = Math.max(1, Math.min(Number(env.BATCH ?? 200), 500));
 	const page = await env.SOURCE.list({ limit: batch, ...(state.cursor ? { cursor: state.cursor } : {}) });
+	const copiedKeys: string[] = [];
+	state.run += 1;
 	for (const object of page.objects) {
 		state.listed += 1;
 		try {
-			await copyOne(env, state, object.key, object.etag);
+			await copyOne(env, state, copiedKeys, object.key, object.etag);
 		} catch (error) {
-			state.errors.push({ key: object.key, error: error instanceof Error ? error.message : String(error) });
+			state.errorCount += 1;
+			if (state.errors.length < MAX_ERRORS) state.errors.push({ key: object.key, error: error instanceof Error ? error.message : String(error) });
 		}
+	}
+	if (copiedKeys.length > 0) {
+		await env.BACKUP.put(`manifests/${state.day}/${String(state.run).padStart(5, "0")}.json`, JSON.stringify({ day: state.day, run: state.run, at: now.toISOString(), keys: copiedKeys }), { httpMetadata: { contentType: "application/json" } });
 	}
 	state.cursor = page.truncated ? page.cursor : null;
 	if (!page.truncated) {
 		state.done = true;
-		const summary = { day: state.day, startedAt: state.startedAt, finishedAt: now.toISOString(), listed: state.listed, copied: state.copied, versioned: state.versioned, bytes: state.bytes, errors: state.errors.length, firstErrors: state.errors.slice(0, 20) };
-		// Manifests are written once per day under the bucket lock; the summary lives in _state/.
-		const manifest = `manifests/${state.day}.json`;
-		if (!(await env.BACKUP.head(manifest))) {
-			await env.BACKUP.put(manifest, JSON.stringify({ ...summary, keys: state.copiedKeys }), { httpMetadata: { contentType: "application/json" } });
-		}
+		const summary = { day: state.day, startedAt: state.startedAt, finishedAt: now.toISOString(), runs: state.run, listed: state.listed, copied: state.copied, versioned: state.versioned, bytes: state.bytes, errors: state.errorCount, firstErrors: state.errors.slice(0, 20) };
 		await env.BACKUP.put(SUMMARY_KEY, JSON.stringify(summary), { httpMetadata: { contentType: "application/json" } });
-		state.copiedKeys = [];
 	}
 	await env.BACKUP.put(STATE_KEY, JSON.stringify(state), { httpMetadata: { contentType: "application/json" } });
 	return state;
