@@ -70,13 +70,16 @@ function seed(db) {
 			('m3', 'admin', 'team', 'inbound', 'x@y.z', 'team@ex.com', 'three', 3);
 		INSERT INTO messages (id, user_id, mailbox_id, direction, from_addr, to_addr, cc_addr, subject, created_at) VALUES
 			('m4', 'admin', 'team', 'inbound', 'Only Team <only@team.z>', 'team@ex.com', NULL, 'four', 4),
-			('m5', 'admin', 'inbox', 'outbound', 'hello@ex.com', 'Friend <friend@z.z>', 'X@Y.Z', 'five', 5);
+			('m5', 'admin', 'inbox', 'outbound', 'hello@ex.com', 'Friend <friend@z.z>', 'X@Y.Z', 'five', 5),
+			('m6', 'admin', 'team', 'inbound', '"Jim" <jimbob@x.com>', 'team@ex.com, bob@x.com.evil', NULL, 'six', 6),
+			('m7', 'admin', 'inbox', 'inbound', 'spam@z.z', 'hello@ex.com', NULL, 'seven', 7);
 		INSERT INTO contacts (id, user_id, email, display_name, source, blocked, last_seen_at, created_at) VALUES
 			('admin:x@y.z', 'admin', 'x@y.z', 'Shared Sender', 'inbound', 0, 9, 1),
 			('admin:only@team.z', 'admin', 'only@team.z', 'Only Team', 'inbound', 0, 9, 1),
 			('admin:friend@z.z', 'admin', 'friend@z.z', 'Friend', 'outbound', 0, 9, 1),
 			('admin:ghost@z.z', 'admin', 'ghost@z.z', 'Never mailed', 'manual', 0, NULL, 1),
-			('admin:spam@z.z', 'admin', 'spam@z.z', NULL, 'inbound', 1, 9, 1);
+			('admin:spam@z.z', 'admin', 'spam@z.z', NULL, 'inbound', 1, 9, 1),
+			('admin:bob@x.com', 'admin', 'bob@x.com', 'Bob Elsewhere', 'inbound', 0, 9, 1);
 		INSERT INTO routing_rules (id, user_id, domain_id, pattern, match_field, match_operator, match_value, mailbox_id, action, priority, created_at)
 			VALUES ('block:inbox:blocked@z.z', 'admin', 'd', 'blocked@z.z', 'email', 'exact', 'blocked@z.z', 'inbox', 'trash', 100, 1);
 		INSERT INTO sessions (id, user_id, token_hash, expires_at, created_at) VALUES ('s1', 'admin', 'h1', 9999999999, 1);
@@ -130,6 +133,8 @@ function assertContactsPerMailbox(db) {
 	assert.deepEqual(scoped("inbox"), [
 		{ id: "inbox:blocked@z.z", email: "blocked@z.z", name: null, blocked: 1, seen: null },
 		{ id: "inbox:friend@z.z", email: "friend@z.z", name: "Friend", blocked: 0, seen: 5 },
+		// Owner-wide block, no routing rule for this mailbox: not blocked here.
+		{ id: "inbox:spam@z.z", email: "spam@z.z", name: null, blocked: 0, seen: 7 },
 		{ id: "inbox:x@y.z", email: "x@y.z", name: "Shared Sender", blocked: 0, seen: 5 },
 	]);
 	assert.deepEqual(scoped("team"), [
@@ -137,8 +142,10 @@ function assertContactsPerMailbox(db) {
 		{ id: "team:x@y.z", email: "x@y.z", name: "Shared Sender", blocked: 0, seen: 3 },
 	]);
 	assert.deepEqual(scoped("own"), [], "fa's mailbox exchanged no mail with these addresses");
+	// Whole-address matching: jimbob@x.com and bob@x.com.evil are not bob@x.com.
+	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE email = 'bob@x.com' AND mailbox_id IS NOT NULL").get().n, 0);
 	// Legacy owner-wide rows stay (never read); unmatched ones get no mailbox copy.
-	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 5);
+	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE mailbox_id IS NULL").get().n, 6);
 	assert.equal(db.prepare("SELECT count(*) AS n FROM contacts WHERE email = 'ghost@z.z' AND mailbox_id IS NOT NULL").get().n, 0);
 	const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'contacts'").all().map((row) => row.name);
 	assert.ok(indexes.includes("contacts_mailbox_email_idx"));
