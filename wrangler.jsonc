@@ -4,6 +4,10 @@
 	"main": "./worker.ts",
 	"compatibility_date": "2026-05-20",
 	"keep_vars": true,
+	// picanteverde fork: only reachable on the custom domain (behind WAF rules A/B).
+	"workers_dev": false,
+	"preview_urls": false,
+	"routes": [{ "pattern": "mail.picanteverde.com", "custom_domain": true }],
 	"compatibility_flags": [
 		"nodejs_compat",
 		"global_fetch_strictly_public"
@@ -65,11 +69,12 @@
 			"remote": false,
 		},
 	],
-	"ai": { "binding": "AI", "remote": true },
+	// picanteverde fork: Workers AI removed (assistant/auto-draft would send mail content to a model).
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "mailflare",
+			"database_id": "60d419f6-7b9e-471a-a25b-895f7714b8bc",
 			"migrations_dir": "drizzle/migrations",
 		},
 	],
