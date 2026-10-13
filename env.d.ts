@@ -16,7 +16,7 @@ interface CloudflareEnv {
 	ASSETS: Fetcher;
 	IMAGES: ImagesBinding;
 	WORKER_SELF_REFERENCE: Fetcher;
-	/** picanteverde fork: service binding to the R2 copy worker's CopyEntrypoint (staging only for now). */
+	/** picanteverde fork: service binding to the R2 copy worker's CopyEntrypoint. */
 	R2_COPY?: { run(): Promise<unknown> };
 	REALTIME: DurableObjectNamespace<
 		import("./src/lib/realtime/hub").RealtimeHub
