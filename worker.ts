@@ -134,5 +134,11 @@ export default {
 		ctx.waitUntil(runTrashRetention(env, new Date(controller.scheduledTime)));
 		// Drive trash is emptied once a day, with the 02:00 UTC cron; the 5-minute cron is for queue-like upkeep.
 		if (controller.cron === "0 2 * * *") ctx.waitUntil(runDriveTrashRetention(env, new Date(controller.scheduledTime)));
+		// picanteverde: steps the daily R2 copy (tools/r2-copy on the picanteverde branch) over a
+		// service binding; Cloudflare does not invoke the copier's own cron. The binding can only
+		// call run() and gives this worker no access to the backup bucket.
+		if (controller.cron === "*/5 * * * *" && rawEnv.R2_COPY) {
+			ctx.waitUntil(rawEnv.R2_COPY.run().then(() => undefined, (error) => console.error("R2 copy step failed", error)));
+		}
 	},
 } satisfies ExportedHandler<CloudflareEnv>;
