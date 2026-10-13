@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
+import { createMailboxForAdmin } from "@/lib/mailboxes/create";
+import { accountErrorResponse } from "@/app/api/accounts/utils";
 import { and, eq, or } from "drizzle-orm";
 import { getEnv } from "@/lib/cloudflare";
 import { getDb } from "@/db";
-import { domains, mailboxAccess, mailboxAliases, mailboxes, users } from "@/db/schema";
-import { creatorGrant } from "@/lib/mailboxes/access";
-import { authenticateAdminApiKey, canShareAdminMailboxes } from "@/lib/api/admin-auth";
-import { newId } from "@/lib/ids";
+import { domains, mailboxes, users } from "@/db/schema";
+import { authenticateAdminApiKey } from "@/lib/api/admin-auth";
 import { mailboxSchema } from "@/lib/validators";
-import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -23,35 +22,17 @@ export async function GET(request: Request) {
 	return NextResponse.json({ mailboxes: rows });
 }
 
+/** picanteverde fork: admin-only; the mailbox belongs to the instance and access is granted explicitly. */
 export async function POST(request: Request) {
 	const env = getEnv();
 	const auth = await authenticateAdminApiKey(env, request, "mailboxes");
 	if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	const parsed = mailboxSchema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-	const db = getDb(env);
-	const mailboxType = parsed.data.type ?? "personal";
-	if (mailboxType === "shared" && !(await canShareAdminMailboxes(env))) return NextResponse.json({ error: "A Team license is required to create shared inboxes" }, { status: 403 });
-	const ownerUserId = mailboxType === "shared" ? auth.userId : parsed.data.ownerUserId ?? auth.userId;
-	if (ownerUserId !== auth.userId) {
-		const [owner] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, ownerUserId), eq(users.createdByUserId, auth.userId))).limit(1);
-		if (!owner) return NextResponse.json({ error: "Account not found" }, { status: 404 });
-	}
-	const [domain] = await db.select().from(domains).where(and(eq(domains.id, parsed.data.domainId), eq(domains.userId, auth.userId))).limit(1);
-	if (!domain) return NextResponse.json({ error: "Domain not found" }, { status: 404 });
-	const localPart = parsed.data.localPart.toLowerCase();
-	const [existing] = await db.select({ id: mailboxes.id }).from(mailboxes).where(and(eq(mailboxes.domainId, domain.id), eq(mailboxes.localPart, localPart))).limit(1);
-	if (existing) return NextResponse.json({ error: "Mailbox already exists" }, { status: 409 });
-	const [alias] = await db.select({ id: mailboxAliases.id }).from(mailboxAliases).where(and(eq(mailboxAliases.domainId, domain.id), eq(mailboxAliases.localPart, localPart))).limit(1);
-	if (alias) return NextResponse.json({ error: "An alias already uses this address" }, { status: 409 });
-	const id = newId("mbx");
-	await db.insert(mailboxes).values({ id, userId: ownerUserId, domainId: domain.id, localPart, displayName: parsed.data.displayName, type: mailboxType });
-	await db.insert(mailboxAccess).values(creatorGrant(id, ownerUserId));
 	try {
-		await ensureMailboxDomainRouting(env, db, { id, domainId: domain.id, localPart, useAllDomains: true });
+		const created = await createMailboxForAdmin(env, auth.userId, parsed.data);
+		return NextResponse.json({ ...created, type: "shared" }, { status: 201 });
 	} catch (error) {
-		await db.delete(mailboxes).where(eq(mailboxes.id, id));
-		return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create Cloudflare routing rule" }, { status: 502 });
+		return accountErrorResponse(error);
 	}
-	return NextResponse.json({ id, address: `${localPart}@${domain.hostname}`, type: mailboxType }, { status: 201 });
 }

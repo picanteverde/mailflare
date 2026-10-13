@@ -84,16 +84,6 @@ export function accountErrorResponse(error: unknown) {
 	throw error;
 }
 
-/** Admin session on an installation licensed for Team-only mailbox sharing. */
-export async function requireTeamSharingAdmin(request: Request) {
-	const access = await requireTeamAdmin(request);
-	if (access.error) return access;
-	if (!(await getLicenseEntitlements(access.env)).canShareMailboxes) {
-		return { ...access, error: NextResponse.json({ error: "A Team license is required to share inboxes" }, { status: 403 }) };
-	}
-	return access;
-}
-
 /** picanteverde fork: any enabled admin session; no license or seat gate. */
 export async function requireTeamAdmin(request: Request) {
 	const env = getEnv();

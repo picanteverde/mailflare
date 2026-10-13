@@ -1,90 +1,39 @@
-import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getDb } from "@/db";
-import { mailboxAccess, users } from "@/db/schema";
-import { requireTeamSharingAdmin } from "@/app/api/accounts/utils";
-import { newId } from "@/lib/ids";
-import { mailboxAccessSchema } from "@/lib/validators";
+import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
+import { applyGrantChanges, listGrantsForMailbox } from "@/lib/mailboxes/grants";
+import { mailboxGrantsSchema } from "@/lib/validators";
+import { accountErrorResponse, requireTeamAdmin } from "@/app/api/accounts/utils";
 import type { MailboxAccessRouteParams } from "./types";
-import { getSharedMailboxForAdmin } from "./utils";
 
+/*
+ * picanteverde fork: replaces the Team-licensed shared-inbox members route. Works for every
+ * mailbox, takes receive/send instead of permission levels, and goes through the same
+ * audited grants service as the account page.
+ */
+
+/** Every account with its receive/send grant on this mailbox. Admin only. */
 export async function GET(request: Request, { params }: MailboxAccessRouteParams) {
-	const access = await requireTeamSharingAdmin(request);
+	const access = await requireTeamAdmin(request);
 	if (access.error) return access.error;
 	const { id } = await params;
-	const db = getDb(access.env);
-	const mailbox = await getSharedMailboxForAdmin(db, id, access.user!.id);
-	if (!mailbox) return NextResponse.json({ error: "Shared inbox not found" }, { status: 404 });
-
-	const [members, availableUsers] = await Promise.all([
-		db
-			.select({
-				id: mailboxAccess.id,
-				userId: mailboxAccess.userId,
-				userEmail: users.email,
-				userName: users.name,
-				permission: mailboxAccess.permission,
-				createdAt: mailboxAccess.createdAt,
-			})
-			.from(mailboxAccess)
-			.innerJoin(users, eq(mailboxAccess.userId, users.id))
-			.where(eq(mailboxAccess.mailboxId, id)),
-		db
-			.select({ id: users.id, email: users.email, name: users.name, role: users.role })
-			.from(users)
-			.where(and(eq(users.createdByUserId, access.user!.id), eq(users.disabled, false))),
-	]);
-
-	return NextResponse.json({ members, availableUsers });
+	try {
+		return NextResponse.json({ accounts: await listGrantsForMailbox(access.env, access.user!.id, id) });
+	} catch (error) {
+		return accountErrorResponse(error);
+	}
 }
 
-export async function POST(request: Request, { params }: MailboxAccessRouteParams) {
-	const access = await requireTeamSharingAdmin(request);
+/** Set receive/send for many accounts on this mailbox, atomically and audited. */
+export async function PUT(request: Request, { params }: MailboxAccessRouteParams) {
+	const access = await requireTeamAdmin(request);
 	if (access.error) return access.error;
-	const parsed = mailboxAccessSchema.safeParse(await request.json());
-	if (!parsed.success) return NextResponse.json({ error: "Choose a valid account" }, { status: 400 });
+	if (!hasValidSessionMutationOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
 	const { id } = await params;
-	const db = getDb(access.env);
-	const mailbox = await getSharedMailboxForAdmin(db, id, access.user!.id);
-	if (!mailbox) return NextResponse.json({ error: "Shared inbox not found" }, { status: 404 });
-	const [user] = await db
-		.select({ id: users.id })
-		.from(users)
-		.where(and(eq(users.id, parsed.data.userId), eq(users.createdByUserId, access.user!.id), eq(users.disabled, false)))
-		.limit(1);
-	if (!user) return NextResponse.json({ error: "Account not found" }, { status: 404 });
-
-	// picanteverde fork (interim until the Phase 5 grants API): access decisions read
-	// only can_receive/can_send, so keep them in step with the legacy level.
-	const grant = { canReceive: true, canSend: parsed.data.permission !== "read_only", grantedByUserId: access.user!.id, grantedAt: new Date() };
-	await db
-		.insert(mailboxAccess)
-		.values({
-			id: newId("mac"),
-			mailboxId: id,
-			userId: user.id,
-			permission: parsed.data.permission,
-			createdByUserId: access.user!.id,
-			...grant,
-		})
-		.onConflictDoUpdate({
-			target: [mailboxAccess.mailboxId, mailboxAccess.userId],
-			set: { permission: parsed.data.permission, createdByUserId: access.user!.id, ...grant },
-		});
-	return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(request: Request, { params }: MailboxAccessRouteParams) {
-	const access = await requireTeamSharingAdmin(request);
-	if (access.error) return access.error;
-	const { id } = await params;
-	const userId = new URL(request.url).searchParams.get("userId");
-	if (!userId) return NextResponse.json({ error: "Account is required" }, { status: 400 });
-	const db = getDb(access.env);
-	const mailbox = await getSharedMailboxForAdmin(db, id, access.user!.id);
-	if (!mailbox) return NextResponse.json({ error: "Shared inbox not found" }, { status: 404 });
-	await db
-		.delete(mailboxAccess)
-		.where(and(eq(mailboxAccess.mailboxId, id), eq(mailboxAccess.userId, userId)));
-	return NextResponse.json({ ok: true });
+	const parsed = mailboxGrantsSchema.safeParse(await request.json().catch(() => null));
+	if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+	try {
+		return NextResponse.json(await applyGrantChanges(access.env, access.user!.id, parsed.data.grants.map((grant) => ({ mailboxId: id, ...grant }))));
+	} catch (error) {
+		return accountErrorResponse(error);
+	}
 }

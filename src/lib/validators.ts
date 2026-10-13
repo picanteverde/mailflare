@@ -117,10 +117,13 @@ export const domainSchema = z.object({
 
 export const mailboxSchema = z.object({
 	domainId: z.string().min(1),
-	ownerUserId: z.string().min(1).optional(),
 	localPart: z.string().min(1).max(64),
 	displayName: z.string().optional(),
+	// picanteverde fork: accepted for compatibility and ignored; mailboxes belong to the instance.
+	ownerUserId: z.string().min(1).optional(),
 	type: z.enum(["personal", "shared"]).optional(),
+	/** picanteverde fork: optional grants applied right after creation (audited). */
+	grants: z.array(z.object({ userId: z.string().min(1).max(100), receive: z.boolean(), send: z.boolean() })).max(200).optional(),
 });
 
 export const updateManagedAccountSchema = z.object({
@@ -175,6 +178,16 @@ export const updateAccountSchema = z.object({
 		(value) => (typeof value === "string" ? value.trim() : value),
 		z.string().min(8).or(z.literal("")).optional().transform((value) => value || null),
 	),
+});
+
+/** picanteverde fork: grant changes from an account's page (one account, many mailboxes). */
+export const accountGrantsSchema = z.object({
+	grants: z.array(z.object({ mailboxId: z.string().min(1).max(100), receive: z.boolean(), send: z.boolean() })).min(1).max(200),
+});
+
+/** picanteverde fork: grant changes from a mailbox's page (one mailbox, many accounts). */
+export const mailboxGrantsSchema = z.object({
+	grants: z.array(z.object({ userId: z.string().min(1).max(100), receive: z.boolean(), send: z.boolean() })).min(1).max(200),
 });
 
 export const mailboxAccessSchema = z.object({
