@@ -23,6 +23,7 @@ Base: upstream `hieunc229/mailflare@2e24bfd` plus the fork commits on branch `pi
 | Mailboxes | list mailboxes and counts, select mailbox | R (only mailboxes with R are listed) |
 | Messages | list, search (incl. FTS), thread view, open, original `.eml`, attachments, export | R on **each message's** mailbox. Threads that span mailboxes are filtered per message. |
 | Organize | read/unread, star, snooze, move to folder, archive, spam/not spam, trash, bulk on these | R |
+| Organize | move a message to **another mailbox** | R on **both** the source and the destination mailbox |
 | Destroy | empty trash/spam, delete for good, trash-retention policy | A |
 | Folders | use existing folders | R |
 | Folders | create, rename, delete | A |
@@ -34,7 +35,7 @@ Base: upstream `hieunc229/mailflare@2e24bfd` plus the fork commits on branch `pi
 | Mailbox settings | name, signature, auto-reply, aliases, avatar, routing rules, forwarding, webhooks, spam settings | A |
 | Import | IMAP / message import into a mailbox | A |
 | Backups | download, restore, scheduled backup | A, audited |
-| API keys (`/api/v1/*`, MCP, JMAP) | per-key mailbox scope | key scope ∩ the owner's grants, re-checked **every request**. Reads need R, submission needs S. |
+| API keys (`/api/v1/*`, MCP, JMAP) | per-key mailbox scope | key scope ∩ the owner's grants, re-checked **every request**. Reads need R, submission needs S. A key stops working at once when its account is disabled or its sessions are revoked. |
 | Realtime / push | new-mail events, revision polling, push notifications | R |
 | Agent (AI off in this deployment) | chat, auto-draft, reviewer | R to read, S to send. The reviewer must hold R+S. |
 | Accounts | create, disable/enable, role, reset password/TOTP, revoke sessions | A, audited |
@@ -54,6 +55,8 @@ The route-by-route inventory (Phase 4) lists every handler with the row above th
 - Every request re-reads the session and the grants. There is no server-side cache, so a grant change applies on the account's next request.
 - Password reset, account disable, TOTP reset and an explicit "revoke sessions" delete or revoke all of the account's sessions and close its realtime WebSockets.
 - TOTP is mandatory for every account. Until enrollment is complete, only the enrollment and logout endpoints answer; everything else returns 403 `totp_enrollment_required`.
+- API keys follow their account: every request with a key re-checks that the owning account is enabled and that the key was created after the account's last session revocation. Disable or "revoke sessions" therefore kills the keys too.
+- **Last-admin protection:** the last enabled admin can't be disabled or demoted, and an admin can't demote or disable themselves when no other enabled admin remains. The API answers 409 `last_admin`.
 - Login: the existing IP rate limit (`LOGIN_RATE_LIMIT`, 20/min) and Turnstile apply to every account. A **per-account backoff** is added with increasing delays after consecutive failures, never a hard lock, so an outsider can't lock a real user out on purpose.
 
 ## 5. Upstream features disabled or changed in this fork
@@ -79,6 +82,8 @@ The route-by-route inventory (Phase 4) lists every handler with the row above th
 
 ## 7. Audit events
 
+The audit log is **admin-read-only and append-only**. No API updates or deletes `audit_logs` rows (backup restore included). Migration 0061 adds SQLite triggers that reject any `DELETE` and any `UPDATE`, except the foreign-key actions that null out a reference to a removed user, mailbox or message.
+
 All are written to `audit_logs` with `actor_user_id`, `target_user_id`, `mailbox_id` (if any), `action`, JSON `metadata` and a timestamp. Mail bodies and subjects are never logged.
 
 | action | metadata |
@@ -86,14 +91,17 @@ All are written to `audit_logs` with `actor_user_id`, `target_user_id`, `mailbox
 | `account.create` | login, role |
 | `account.disable` / `account.enable` | reason (optional) |
 | `account.role_change` | from, to |
-| `credentials.password_reset` | by_admin: bool |
-| `credentials.totp_reset` | — |
+| `credentials.password_reset` | by_admin: bool, target_is_admin: bool |
+| `credentials.totp_reset` | target_is_admin: bool |
 | `session.revoke` | count |
 | `grant.set` | mailbox_id, receive: bool, send: bool, previous: {receive, send} |
 | `grant.revoke` | mailbox_id, previous |
 | `mailbox.create` / `mailbox.disable` / `mailbox.settings_change` | changed fields (names only) |
 | `backup.download` / `backup.restore` | backup id |
 | `mail.send` | mailbox_id, message_id (no content) |
+| `mail.move_mailbox` | from_mailbox_id, to_mailbox_id, message_id |
+
+An admin resetting **another admin's** password or TOTP (`target_is_admin: true`) is the main event to watch. The admin audit view highlights it.
 
 ## 8. Release gate
 
