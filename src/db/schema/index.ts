@@ -148,11 +148,17 @@ export const mailboxAccess = sqliteTable(
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
+		// picanteverde fork: the only columns access decisions read (0061). `permission` above is legacy.
+		canReceive: integer("can_receive", { mode: "boolean" }).notNull().default(false),
+		canSend: integer("can_send", { mode: "boolean" }).notNull().default(false),
+		grantedByUserId: text("granted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+		grantedAt: integer("granted_at", { mode: "timestamp" }),
 	},
 	(t) => [
 		uniqueIndex("mailbox_access_mailbox_user_idx").on(t.mailboxId, t.userId),
 		index("mailbox_access_user_idx").on(t.userId),
 		index("mailbox_access_mailbox_idx").on(t.mailboxId),
+		index("mailbox_access_user_receive_idx").on(t.userId, t.canReceive),
 	],
 );
 
@@ -554,7 +560,7 @@ export const sessions = sqliteTable("sessions", {
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
-});
+}, (t) => [index("sessions_user_idx").on(t.userId)]);
 
 export const pushSubscriptions = sqliteTable(
 	"push_subscriptions",
