@@ -24,6 +24,8 @@
 			"binding": "WORKER_SELF_REFERENCE",
 			"service": "mailflare",
 		},
+		// picanteverde: the R2 copy worker's RPC entrypoint only (run() steps the daily copy).
+		{ "binding": "R2_COPY", "service": "mailflare-r2-copy", "entrypoint": "CopyEntrypoint" },
 	],
 	"durable_objects": {
 		"bindings": [

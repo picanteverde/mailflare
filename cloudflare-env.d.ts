@@ -15,6 +15,8 @@ interface __BaseEnv_CloudflareEnv {
 	ASSETS: Fetcher;
 	REALTIME: DurableObjectNamespace<import("./worker").RealtimeHub>;
 	WORKER_SELF_REFERENCE: Service<typeof import("./worker").default>;
+	/** picanteverde: service binding to the R2 copy worker's CopyEntrypoint. */
+	R2_COPY?: { run(): Promise<unknown> };
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
