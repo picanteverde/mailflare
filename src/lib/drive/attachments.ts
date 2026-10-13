@@ -23,7 +23,8 @@ export async function listDriveAttachments(db: Db, user: Parameters<typeof listA
 	const accessible = await listAccessibleMailboxes(db, user);
 	const mailboxIds = accessible.map((mailbox) => mailbox.id);
 	const sendable = new Set(accessible.filter((mailbox) => mailbox.canSend).map((mailbox) => mailbox.id));
-	const scopes = [and(isNull(messages.mailboxId), eq(messages.userId, user.id))];
+	// picanteverde fork: grants only; no messages.user_id scope for mailbox-less rows.
+	const scopes: ReturnType<typeof and>[] = [];
 	for (let index = 0; index < mailboxIds.length; index += MAILBOX_CHUNK) scopes.push(inArray(messages.mailboxId, mailboxIds.slice(index, index + MAILBOX_CHUNK)));
 	const typeFilter = categories.length ? [driveTypesCondition(categories, { contentType: messageAttachments.contentType, name: messageAttachments.filename })] : [];
 
@@ -54,6 +55,6 @@ export async function listDriveAttachments(db: Db, user: Parameters<typeof listA
 			linkToken: null,
 			trashedAt: row.attachment.trashedAt?.toISOString() ?? null,
 			updatedAt: row.date.toISOString(),
-			source: { messageId: row.messageId, subject: row.subject ?? "", direction: row.direction, canDelete: !row.mailboxId || sendable.has(row.mailboxId) },
+			source: { messageId: row.messageId, subject: row.subject ?? "", direction: row.direction, canDelete: !!row.mailboxId && sendable.has(row.mailboxId) },
 		}));
 }

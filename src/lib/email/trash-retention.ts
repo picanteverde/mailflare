@@ -14,7 +14,8 @@ export async function runTrashRetention(env: CloudflareEnv, now = new Date()): P
 	const owners = await db
 		.select({ id: users.id, days: users.trashRetentionDays })
 		.from(users)
-		.where(isNotNull(users.trashRetentionDays));
+		// picanteverde fork: only enabled admins' retention settings apply (destroying mail is admin-only).
+		.where(and(isNotNull(users.trashRetentionDays), eq(users.role, "admin"), eq(users.disabled, false)));
 
 	let budget = TRASH_RETENTION_BATCH_SIZE;
 	let deleted = 0;

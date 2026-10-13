@@ -6,7 +6,7 @@ import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { draftVisibility, getMailboxAccessLevel, listAccessibleMailboxIds, mailboxScope } from "@/lib/mailboxes/access";
 import type { MessageFolder } from "@/hooks/types";
 import type { MessageNavigationEntry } from "./types";
 
@@ -33,11 +33,9 @@ export async function GET(request: Request) {
 		if (!access?.canRead) return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 		conditions.push(eq(messages.mailboxId, mailboxId));
 	} else {
-		const accessibleIds = await listAccessibleMailboxIds(db, user);
-		conditions.push(accessibleIds.length > 0
-			? inArray(messages.mailboxId, accessibleIds)
-			: eq(messages.userId, user.id));
+		conditions.push(mailboxScope(messages.mailboxId, await listAccessibleMailboxIds(db, user)));
 	}
+	conditions.push(draftVisibility(user.id, await listAccessibleMailboxIds(db, user, "send")));
 
 	if (folder === "inbox") {
 		conditions.push(eq(messages.direction, "inbound"));

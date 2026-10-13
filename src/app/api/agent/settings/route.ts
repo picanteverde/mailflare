@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { agentJobs, mailboxAgentSettings, users } from "@/db/schema";
 import { getEnv } from "@/lib/cloudflare";
 import { getCurrentUser } from "@/lib/auth/cookies";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess, getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getAgentProviderPublicConfig } from "@/lib/agent/provider";
 import { isPrimaryAdmin } from "@/lib/auth/admin";
 import { hasValidSessionMutationOrigin } from "@/lib/auth/origin";
@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
 	const parsed = schema.safeParse(await request.json().catch(() => null));
 	if (!parsed.success) return Response.json({ error: "Invalid settings" }, { status: 400 });
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, parsed.data.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, parsed.data.mailboxId);
 	if (!access?.canManage) return Response.json({ error: "Mailbox not found or permission denied" }, { status: 403 });
 	const reviewerId = parsed.data.reviewerUserId || access.mailbox.userId;
 	const [reviewer] = await db.select().from(users).where(eq(users.id, reviewerId)).limit(1);

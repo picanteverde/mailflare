@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { canReadMessage } from "@/lib/mailboxes/access";
 import type { MessageOriginalRouteParams } from "./types";
 
 export async function GET(request: Request, { params }: MessageOriginalRouteParams) {
@@ -14,13 +14,12 @@ export async function GET(request: Request, { params }: MessageOriginalRoutePara
 	const { messageId } = await params;
 	const db = getDb(env);
 	const [message] = await db
-		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key })
+		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key, userId: messages.userId, status: messages.status })
 		.from(messages)
 		.where(eq(messages.id, messageId))
 		.limit(1);
-	if (!message?.mailboxId) return new Response("Message not found", { status: 404 });
-	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canRead) return new Response("Message not found", { status: 404 });
+	// picanteverde fork: checked before anything is read from R2.
+	if (!message || !(await canReadMessage(db, user, message))) return new Response("Message not found", { status: 404 });
 	if (!message.rawR2Key) {
 		return new Response("Original source was not retained for this message.", { status: 404 });
 	}

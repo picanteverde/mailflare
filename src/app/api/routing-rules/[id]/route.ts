@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { folders, routingRules } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
 import type { RoutingRuleRouteParams } from "./types";
 
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: RoutingRuleRouteParams
 	if (!rule?.mailboxId || rule.mailboxId !== parsed.data.mailboxId) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
-	const access = await getMailboxAccessLevel(db, user, rule.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, rule.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
@@ -70,7 +70,7 @@ export async function DELETE(request: Request, { params }: RoutingRuleRouteParam
 	if (!rule?.mailboxId) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}
-	const access = await getMailboxAccessLevel(db, user, rule.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, rule.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Rule not found" }, { status: 404 });
 	}

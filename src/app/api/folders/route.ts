@@ -7,6 +7,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { newId } from "@/lib/ids";
 import { folderSchema } from "@/lib/validators";
 import { getMailboxFolderAccess, listFoldersForMailbox } from "./utils";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -36,7 +37,9 @@ export async function POST(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxFolderAccess(db, user, parsed.data.mailboxId);
+	// picanteverde fork: creating folders is admin-only and needs no mail grant.
+	const admin = await getAdminMailboxAccess(db, user, parsed.data.mailboxId);
+	const access = admin && { mailboxId: admin.mailbox.id, mailboxUserId: admin.mailbox.userId, canManage: admin.canManage };
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

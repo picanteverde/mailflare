@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: DraftAttachmentUploadPa
 	if (!hasValidSessionMutationOrigin(request)) return Response.json({ error: "Invalid origin" }, { status: 403 });
 	const db = getDb(env);
 	const [draft] = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
-	if (!userOwnsDraft(draft, user.id)) return Response.json({ error: "Draft not found" }, { status: 404 });
+	if (!(await userOwnsDraft(db, draft, user.id))) return Response.json({ error: "Draft not found" }, { status: 404 });
 	let form: FormData;
 	try { form = await readFormDataBody(request, 30 * 1024 * 1024); }
 	catch (error) { return Response.json({ error: "Invalid attachment request" }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 }); }

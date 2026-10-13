@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { scheduledMessageCondition } from "@/lib/email/scheduled";
 import { buildMessageCounts } from "./utils";
-import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { draftVisibility, getMailboxAccessLevel, listAccessibleMailboxIds, mailboxScope } from "@/lib/mailboxes/access";
 
 export async function GET(request: Request) {
 	const env = getEnv();
@@ -28,13 +28,9 @@ export async function GET(request: Request) {
 		}
 		conditions.push(eq(messages.mailboxId, mailboxId));
 	} else {
-		const accessibleMailboxIds = await listAccessibleMailboxIds(db, user);
-		if (accessibleMailboxIds.length > 0) {
-			conditions.push(inArray(messages.mailboxId, accessibleMailboxIds));
-		} else {
-			conditions.push(eq(messages.userId, user.id));
-		}
+		conditions.push(mailboxScope(messages.mailboxId, await listAccessibleMailboxIds(db, user)));
 	}
+	conditions.push(draftVisibility(user.id, await listAccessibleMailboxIds(db, user, "send")));
 
 	const rows = await db
 		.select({

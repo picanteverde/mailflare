@@ -8,7 +8,7 @@ import { dispatchWebhooks } from "@/lib/email/webhooks";
 import { getMessageContactNames, upsertContactFromAddress } from "@/lib/contacts/service";
 import { getEmailAddress } from "@/lib/email/address";
 import { sendMailboxAutoReply } from "@/lib/email/auto-reply";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { canReadMessage } from "@/lib/mailboxes/access";
 import { listMessageAttachments, storeMessageAttachments } from "@/lib/email/attachments";
 import { inboundAttachmentLimitReason } from "@/lib/email/inbound-attachments";
 import { inboundMessageId } from "@/lib/email/inbound-id";
@@ -304,9 +304,7 @@ export async function getMessageWithBody(env: CloudflareEnv, userId: string, mes
 export async function getMessageWithBodyForUser(env: CloudflareEnv, user: SessionUser, messageId: string) {
 	const db = getDb(env);
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
-	if (!message?.mailboxId) return null;
-	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canRead) return null;
+	if (!message || !(await canReadMessage(db, user, message))) return null;
 	const contactNames = await getMessageContactNames(env, message.userId, message.fromAddr, message.toAddr);
 	const attachments = await listMessageAttachments(env, messageId);
 	const unsubscribeUrl = await getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key);
@@ -316,13 +314,11 @@ export async function getMessageWithBodyForUser(env: CloudflareEnv, user: Sessio
 export async function getMessageMetadataForUser(env: CloudflareEnv, user: SessionUser, messageId: string) {
 	const db = getDb(env);
 	const [message] = await db
-		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key })
+		.select({ mailboxId: messages.mailboxId, rawR2Key: messages.rawR2Key, userId: messages.userId, status: messages.status })
 		.from(messages)
 		.where(eq(messages.id, messageId))
 		.limit(1);
-	if (!message?.mailboxId) return null;
-	const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-	if (!access?.canRead) return null;
+	if (!message || !(await canReadMessage(db, user, message))) return null;
 	const [attachments, unsubscribeUrl] = await Promise.all([
 		listMessageAttachments(env, messageId),
 		getUnsubscribeUrlFromRawR2Key(env, message.rawR2Key),

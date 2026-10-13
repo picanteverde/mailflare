@@ -62,17 +62,18 @@ function statusRole(status: string): SystemRole | null {
 }
 
 function rights(mailbox: AccessibleMailbox, system: boolean) {
-	const canWrite = mailbox.permission !== "read_only";
-	const canSend = mailbox.permission === "send_as" || mailbox.permission === "send_on_behalf" || mailbox.permission === "full_access";
+	// picanteverde fork: organizing needs receive (every listed mailbox); folders are admin-only.
+	const canWrite = true;
+	const canSend = mailbox.canSend;
 	return {
 		mayReadItems: true,
 		mayAddItems: canWrite,
 		mayRemoveItems: canWrite,
 		maySetSeen: canWrite,
 		maySetKeywords: canWrite,
-		mayCreateChild: mailbox.permission === "full_access",
-		mayRename: !system && mailbox.permission === "full_access",
-		mayDelete: !system && mailbox.permission === "full_access",
+		mayCreateChild: mailbox.canManage,
+		mayRename: !system && mailbox.canManage,
+		mayDelete: !system && mailbox.canManage,
 		maySubmit: canSend,
 	};
 }
@@ -196,7 +197,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 		const parent = typeof value.parentId === "string" ? decodeMailboxRef(value.parentId) : null;
 		const name = typeof value.name === "string" ? value.name.trim() : "";
 		const mailbox = parent && accessible.find((row) => row.id === parent.mailboxId);
-		if (!parent || parent.kind !== "account" || !mailbox || mailbox.permission !== "full_access") {
+		if (!parent || parent.kind !== "account" || !mailbox || !mailbox.canManage) {
 			notCreated[creationId] = { type: "invalidProperties", properties: ["parentId"], description: "Folders live directly under a mailbox" };
 			continue;
 		}
@@ -249,7 +250,7 @@ export const mailboxSet: JmapMethodHandler = async (ctx, args) => {
 			notDestroyed[id] = { type: "notFound" };
 			continue;
 		}
-		if (ref.kind !== "folder" || mailbox.permission !== "full_access") {
+		if (ref.kind !== "folder" || !mailbox.canManage) {
 			notDestroyed[id] = { type: "forbidden" };
 			continue;
 		}

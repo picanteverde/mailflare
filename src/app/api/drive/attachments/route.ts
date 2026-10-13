@@ -37,7 +37,8 @@ export async function POST(request: Request) {
 			.where(inArray(messageAttachments.id, ids.slice(index, index + 50)));
 		for (const row of rows) {
 			let allowed: boolean;
-			if (!row.mailboxId) allowed = row.userId === user.id;
+			// picanteverde fork: mail outside any mailbox is no one's to change.
+			if (!row.mailboxId) allowed = false;
 			else {
 				if (!accessCache.has(row.mailboxId)) {
 					const access = await getMailboxAccessLevel(db, user, row.mailboxId);

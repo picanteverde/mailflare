@@ -52,6 +52,10 @@ export type AccessibleMailbox = {
 	permission: "read_only" | "send_as" | "send_on_behalf" | "full_access";
 	type: "personal" | "shared";
 	isPrimary: boolean;
+	/** picanteverde fork: the account's send grant on this mailbox. */
+	canSend: boolean;
+	/** picanteverde fork: the account is an enabled admin (folder create/rename/delete, import). */
+	canManage: boolean;
 };
 
 export type EmailAddressObject = { name: string | null; email: string };

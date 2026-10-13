@@ -7,7 +7,7 @@ import { getDb } from "@/db";
 import { messages, outboundJobs } from "@/db/schema";
 import { getContactDisplayNameMap } from "@/lib/contacts/service";
 import { getFirstEmailAddressEntry, normalizeEmailAddress } from "@/lib/email/address";
-import { getMailboxAccessLevel, listAccessibleMailboxes } from "@/lib/mailboxes/access";
+import { draftVisibility, getMailboxAccessLevel, listAccessibleMailboxes, mailboxScope } from "@/lib/mailboxes/access";
 import { tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { buildSearchConditions } from "@/lib/search/conditions";
 import { getRequestTimeZone } from "@/lib/time/utils";
@@ -49,11 +49,10 @@ export async function GET(request: Request) {
 			return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 		}
 		conditions.push(eq(messages.mailboxId, mailboxId));
-	} else if (accessibleMailboxIds.length > 0) {
-		conditions.push(inArray(messages.mailboxId, accessibleMailboxIds));
 	} else {
-		conditions.push(eq(messages.userId, user.id));
+		conditions.push(mailboxScope(messages.mailboxId, accessibleMailboxIds));
 	}
+	conditions.push(draftVisibility(user.id, accessibleMailboxes.filter((mailbox) => mailbox.canSend).map((mailbox) => mailbox.id)));
 	if (direction === "inbound" || direction === "outbound") {
 		conditions.push(eq(messages.direction, direction));
 	}
@@ -141,11 +140,7 @@ export async function GET(request: Request) {
 	const threadIds = Array.from(new Set(rows.map((row) => row.threadId).filter((id): id is string => !!id)));
 	const threadCounts = new Map<string, { total: number; unread: number }>();
 	if (threadIds.length > 0) {
-		const scope = mailboxId
-			? eq(messages.mailboxId, mailboxId)
-			: accessibleMailboxIds.length > 0
-				? inArray(messages.mailboxId, accessibleMailboxIds)
-				: eq(messages.userId, user.id);
+		const scope = mailboxId ? eq(messages.mailboxId, mailboxId) : mailboxScope(messages.mailboxId, accessibleMailboxIds);
 		const countRows = await db
 			.select({
 				threadId: messages.threadId,

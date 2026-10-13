@@ -5,6 +5,7 @@ import { backups } from "@/db/schema";
 import { assertPrimaryAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
+import { createAuditLog } from "@/lib/mailboxes/audit";
 
 export async function GET(
 	request: Request,
@@ -19,6 +20,8 @@ export async function GET(
 		if (!backup?.r2Key) return NextResponse.json({ error: "Backup file not found" }, { status: 404 });
 		const object = await env.BUCKET.get(backup.r2Key);
 		if (!object) return NextResponse.json({ error: "Backup file not found" }, { status: 404 });
+		// picanteverde fork: a backup holds every mailbox, so each download is audited.
+		await createAuditLog(env, { actorUserId: user.id, action: "backup.download", metadata: { backupId: backup.id } });
 		return new Response(object.body, {
 			headers: {
 				"Content-Type": "application/sql",

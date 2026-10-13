@@ -9,7 +9,7 @@ import { readJsonBody } from "@/lib/http/request";
 import { getImportMessageUserId } from "@/lib/import/destination";
 import { fetchImapMessages } from "@/lib/import/imap";
 import { importMessagesToMailbox } from "@/lib/import/service";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import type { ImapImportRequest } from "./types";
 import { parseImapImportRequest } from "./utils";
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid IMAP import request" }, { status });
 	}
 
-	const access = await getMailboxAccessLevel(getDb(env), user, input.mailboxId);
+	const access = await getAdminMailboxAccess(getDb(env), user, input.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

@@ -44,7 +44,7 @@ export async function PATCH(request: Request, { params }: DraftRouteParams) {
 	const db = getDb(env);
 	const [draft] = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
 
-	if (!userOwnsDraft(draft, user.id)) {
+	if (!(await userOwnsDraft(db, draft, user.id))) {
 		return NextResponse.json({ error: "Draft not found" }, { status: 404 });
 	}
 	const [agent] = await db.select({ mailboxId: agentDraftMetadata.mailboxId }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, id)).limit(1);
@@ -89,7 +89,7 @@ export async function DELETE(request: Request, { params }: DraftRouteParams) {
 	const db = getDb(env);
 	const [draft] = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
 
-	if (!userOwnsDraft(draft, user.id)) {
+	if (!(await userOwnsDraft(db, draft, user.id))) {
 		return NextResponse.json({ error: "Draft not found" }, { status: 404 });
 	}
 

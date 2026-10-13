@@ -8,7 +8,7 @@ import { newId } from "@/lib/ids";
 import { buildSnippet } from "@/lib/email/parse";
 import { readJsonBody } from "@/lib/http/request";
 import { copyMessageAttachments } from "@/lib/email/attachments";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getMailboxAccessLevel, listAccessibleMailboxIds, mailboxScope } from "@/lib/mailboxes/access";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import type { DraftPayload } from "./types";
 import { getDraftSender } from "./utils";
@@ -19,7 +19,9 @@ export async function GET(request: Request) {
 	const url = new URL(request.url);
 	const mailboxId = url.searchParams.get("mailboxId");
 	const db = getDb(env);
+	// picanteverde fork: the author's drafts, only in mailboxes they may still send from.
 	const conditions = [
+		mailboxScope(messages.mailboxId, await listAccessibleMailboxIds(db, user, "send")),
 		eq(messages.userId, user.id),
 		eq(messages.direction, "outbound" as const),
 		eq(messages.status, "draft"),

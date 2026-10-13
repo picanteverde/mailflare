@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { messages } from "@/db/schema";
+import { draftVisibility, mailboxScope } from "@/lib/mailboxes/access";
 import { newId } from "@/lib/ids";
 import { buildSnippet, parseRawMime } from "@/lib/email/parse";
 import { getAuthorizedSenderAddress } from "@/lib/email/sender";
@@ -71,8 +72,11 @@ async function insertDraft(ctx: JmapContext, row: DraftRow): Promise<string> {
 }
 
 async function scope(ctx: JmapContext) {
-	const ids = Array.from(await listAccessibleMailboxIdSet(ctx));
-	return { ids, condition: ids.length ? inArray(messages.mailboxId, ids) : ctx.auth.mailboxIds ? sql`1 = 0` : eq(messages.userId, ctx.auth.userId) };
+	const jmapMailboxes = await listJmapMailboxes(ctx);
+	const ids = jmapMailboxes.map((row) => row.id);
+	const sendable = jmapMailboxes.filter((row) => row.canSend).map((row) => row.id);
+	// Other accounts' drafts never show; the author's only where they can send.
+	return { ids, condition: and(mailboxScope(messages.mailboxId, ids), draftVisibility(ctx.auth.userId, sendable))! };
 }
 
 export async function loadMessages(ctx: JmapContext, ids: string[]): Promise<MessageRow[]> {
@@ -256,7 +260,10 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 	const oldState = await getEmailState(ctx);
 	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
 	const accessible = await listAccessibleMailboxIdSet(ctx);
-	const writable = new Set((await listJmapMailboxes(ctx)).filter((row) => row.permission !== "read_only").map((row) => row.id));
+	// picanteverde fork: creating drafts needs send; organizing needs receive (access design §2).
+	const jmapMailboxes = await listJmapMailboxes(ctx);
+	const writable = new Set(jmapMailboxes.filter((row) => row.canSend).map((row) => row.id));
+	const isAdmin = jmapMailboxes.some((row) => row.canManage);
 	const created: Record<string, unknown> = {};
 	const notCreated: Record<string, unknown> = {};
 	const updated: Record<string, null> = {};
@@ -284,7 +291,7 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notUpdated[id] = { type: "notFound" };
 			continue;
 		}
-		if (!writable.has(row.mailboxId)) {
+		if (!accessible.has(row.mailboxId)) {
 			notUpdated[id] = { type: "forbidden" };
 			continue;
 		}
@@ -316,7 +323,11 @@ export const emailSet: JmapMethodHandler = async (ctx, args) => {
 			notDestroyed[id] = { type: "notFound" };
 			continue;
 		}
-		if (!writable.has(row.mailboxId)) {
+		// Trash -> gone is permanent (admin); a draft is its author's (send); else -> Trash (receive).
+		const allowed = row.status === "trash" ? isAdmin
+			: row.status === "draft" ? row.userId === ctx.auth.userId && writable.has(row.mailboxId)
+				: accessible.has(row.mailboxId);
+		if (!allowed) {
 			notDestroyed[id] = { type: "forbidden" };
 			continue;
 		}
@@ -417,7 +428,8 @@ export const emailImport: JmapMethodHandler = async (ctx, args) => {
 	if (args.ifInState && args.ifInState !== oldState) return { type: "stateMismatch" };
 	const emails = (args.emails ?? {}) as Record<string, Record<string, unknown>>;
 	if (Object.keys(emails).length > LIMITS.maxObjectsInSet) throw new JmapError("requestTooLarge");
-	const writable = new Set((await listJmapMailboxes(ctx)).filter((row) => row.permission !== "read_only").map((row) => row.id));
+	// picanteverde fork: importing mail is admin-only (access design §2).
+	const writable = new Set((await listJmapMailboxes(ctx)).filter((row) => row.canManage).map((row) => row.id));
 	const created: Record<string, unknown> = {};
 	const notCreated: Record<string, unknown> = {};
 

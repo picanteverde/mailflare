@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messageAttachments, messages } from "@/db/schema";
 import { newId } from "@/lib/ids";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { canReadMessage } from "@/lib/mailboxes/access";
 import type { SessionUser } from "@/lib/auth/types";
 import type {
 	AttachmentContent,
@@ -236,12 +236,8 @@ export async function getAttachmentForUser(
 	const [message] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
 	if (!message) return null;
 
-	if (message.mailboxId) {
-		const access = await getMailboxAccessLevel(db, user, message.mailboxId);
-		if (!access?.canRead) return null;
-	} else if (message.userId !== user.id) {
-		return null;
-	}
+	// picanteverde fork: checked before anything is read from R2; no author fallback.
+	if (!(await canReadMessage(db, user, message))) return null;
 
 	const [attachment] = await db
 		.select()

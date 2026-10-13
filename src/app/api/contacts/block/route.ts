@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { blockContact } from "@/lib/contacts/service";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import type { BlockContactRequest } from "./types";
 
 export async function POST(request: Request) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: "Mailbox and contact are required" }, { status: 400 });
 	}
 
-	const access = await getMailboxAccessLevel(getDb(env), user, body.mailboxId);
+	const access = await getAdminMailboxAccess(getDb(env), user, body.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

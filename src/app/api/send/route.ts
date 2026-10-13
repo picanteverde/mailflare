@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 	if (draftId) {
 		const db = getDb(env);
 		const [draft] = await db.select().from(messages).where(eq(messages.id, draftId)).limit(1);
-		if (!userOwnsDraft(draft, user.id)) {
+		if (!(await userOwnsDraft(db, draft, user.id))) {
 			return NextResponse.json({ error: "Draft not found" }, { status: 404 });
 		}
 		const [agent] = await db.select({ draftId: agentDraftMetadata.draftId }).from(agentDraftMetadata).where(eq(agentDraftMetadata.draftId, draftId)).limit(1);

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { getDb } from "@/db";
 import { messages } from "@/db/schema";
+import { userOwnsDraft } from "../utils";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -25,5 +26,5 @@ export function selectDraftWithBody(db: Db, userId: string, draftId: string) {
 		.from(messages)
 		.where(eq(messages.id, draftId))
 		.limit(1)
-		.then(([draft]) => (draft && draft.userId === userId && draft.status === "draft" ? draft : null));
+		.then(async ([draft]) => (draft && (await userOwnsDraft(db, draft, userId)) ? draft : null));
 }

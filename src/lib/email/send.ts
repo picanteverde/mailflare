@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages, outboundJobs } from "@/db/schema";
+import { can } from "@/lib/mailboxes/access";
 import { newId } from "@/lib/ids";
 import { buildSnippet } from "@/lib/email/parse";
 import { dispatchWebhooks } from "@/lib/email/webhooks";
@@ -324,6 +325,14 @@ export async function processOutboundQueue(
 	};
 	if (scheduledAt.getTime() > Date.now()) {
 		await enqueueScheduledDelivery(env, delivery, scheduledAt);
+		return;
+	}
+	// picanteverde fork: re-check at dequeue. A scheduled or retried send must not go out
+	// after the author lost the send grant, or their account or the mailbox was disabled.
+	if (!input.mailboxId || !(await can(db, { id: input.userId }, input.mailboxId, "send"))) {
+		const error = "Sender no longer has send permission for this mailbox";
+		await db.update(messages).set({ status: "failed" }).where(eq(messages.id, payload.messageId));
+		await db.update(outboundJobs).set({ status: "failed", error, updatedAt: new Date() }).where(eq(outboundJobs.id, payload.jobId));
 		return;
 	}
 	delivery.attachments = await loadMessageAttachmentContents(env, payload.messageId);

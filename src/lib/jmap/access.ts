@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { folders, mailboxes } from "@/db/schema";
+import { folders, mailboxes, users } from "@/db/schema";
 import { listAccessibleMailboxes } from "@/lib/mailboxes/access";
 import { getMailboxDomainAddresses } from "@/lib/mailboxes/domain-addresses";
 import type { AccessibleMailbox, JmapContext } from "./types";
@@ -7,6 +7,9 @@ import type { AccessibleMailbox, JmapContext } from "./types";
 /** Every Mailflare mailbox the key's user can read, in a JMAP-shaped record. */
 export async function listJmapMailboxes(ctx: JmapContext): Promise<AccessibleMailbox[]> {
 	const rows = await listAccessibleMailboxes(ctx.db, ctx.auth.user);
+	// picanteverde fork: rights come from the grant and the account's current role, never the permission label.
+	const [account] = await ctx.db.select({ role: users.role, disabled: users.disabled }).from(users).where(eq(users.id, ctx.auth.user.id)).limit(1);
+	const isAdmin = account?.role === "admin" && !account.disabled;
 	return rows.filter((row) => !ctx.auth.mailboxIds || ctx.auth.mailboxIds.includes(row.id)).map((row) => ({
 		id: row.id,
 		userId: row.userId,
@@ -16,6 +19,8 @@ export async function listJmapMailboxes(ctx: JmapContext): Promise<AccessibleMai
 		permission: row.permission,
 		type: row.type,
 		isPrimary: row.isPrimary,
+		canSend: !!row.canSend,
+		canManage: isAdmin,
 	}));
 }
 

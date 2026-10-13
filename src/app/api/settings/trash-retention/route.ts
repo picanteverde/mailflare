@@ -20,6 +20,8 @@ export async function PATCH(request: Request) {
 	const env = getEnv();
 	const auth = await requireSessionUser(env, request);
 	if (auth.error) return auth.error;
+	// picanteverde fork: retention destroys mail for good, so it is an admin policy (access design §2).
+	if (auth.user.role !== "admin") return NextResponse.json({ error: "Only administrators can change trash retention" }, { status: 403 });
 
 	let input: UpdateTrashRetentionSettingsInput;
 	try {

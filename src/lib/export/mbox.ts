@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { getDb } from "@/db";
 import { messages } from "@/db/schema";
 
@@ -33,7 +33,8 @@ export async function exportMailboxToMbox(env: CloudflareEnv, mailboxId: string)
 			htmlBody: messages.htmlBody,
 		})
 		.from(messages)
-		.where(eq(messages.mailboxId, mailboxId))
+		// picanteverde fork: drafts are private to their author and never exported.
+		.where(and(eq(messages.mailboxId, mailboxId), ne(messages.status, "draft")))
 		.orderBy(asc(messages.createdAt));
 
 	return rows.map((message) => {

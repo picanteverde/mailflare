@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { deleteEmailRoutingRuleForAddress, ensureEmailRoutingRuleToWorker } from "@/lib/cloudflare-api";
 import { newId } from "@/lib/ids";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import { createMailboxAliasSchema } from "@/lib/validators";
 import type { MailboxRouteParams } from "../types";
 
@@ -15,7 +15,7 @@ async function getManagedMailbox(
 	user: Awaited<ReturnType<typeof requireUser>>,
 	mailboxId: string,
 ) {
-	const access = await getMailboxAccessLevel(db, user, mailboxId);
+	const access = await getAdminMailboxAccess(db, user, mailboxId);
 	if (!access?.canManage) return null;
 	const [mailbox] = await db
 		.select({ id: mailboxes.id, domainId: mailboxes.domainId, localPart: mailboxes.localPart })

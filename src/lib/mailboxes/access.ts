@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, ne, or, sql } from "drizzle-orm";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { AppDatabase } from "@/db";
 import { newId } from "@/lib/ids";
-import { domains, mailboxAccess, mailboxes, users } from "@/db/schema";
+import { domains, mailboxAccess, mailboxes, messages, users } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth/types";
 import type { MailboxAccessLevel, MailboxAction, MailboxPermission } from "./types";
 
@@ -87,6 +88,30 @@ export async function getMailboxAccessLevel(
 	};
 }
 
+/**
+ * For admin-only mailbox actions (settings, aliases, routing, import, folders, blocks,
+ * emptying Trash): the mailbox when the caller is an enabled admin, else null. Works
+ * without a mail grant, unlike getMailboxAccessLevel; canRead/canSend still reflect
+ * the admin's own grant, so this never opens the mail itself.
+ */
+export async function getAdminMailboxAccess(db: AppDatabase, user: Principal, mailboxId: string): Promise<MailboxAccessLevel | null> {
+	const row = await loadGrant(db, user, mailboxId);
+	if (!row || !decide(row, "admin")) return null;
+	const canRead = decide(row, "receive");
+	const canSend = decide(row, "send");
+	return {
+		mailbox: row.mailbox,
+		permission: grantLabel(canSend),
+		isOwner: false,
+		canRead,
+		canOrganize: canRead,
+		canSend,
+		canSendAs: canSend,
+		canSendOnBehalf: canSend,
+		canManage: true,
+	};
+}
+
 /** Mailboxes the account may receive from (or send from, with `action: "send"`), enabled ones only. */
 export async function listAccessibleMailboxes(
 	db: AppDatabase,
@@ -160,6 +185,35 @@ export async function loadMailboxGrants(db: AppDatabase, user: Pick<SessionUser,
 		receive,
 		send,
 	};
+}
+
+/**
+ * WHERE clause limiting a mailbox_id column to the given (already authorized) ids.
+ * No ids matches nothing: there is no messages.user_id fallback (access design §3).
+ */
+export function mailboxScope(column: AnySQLiteColumn, mailboxIds: string[]) {
+	return mailboxIds.length > 0 ? inArray(column, mailboxIds) : sql`0 = 1`;
+}
+
+/**
+ * One message, read by `user`: receive on its mailbox, and drafts only by their
+ * author while the author may still send from that mailbox (access design §2).
+ * Mail outside any mailbox is no one's. Use before returning bodies, metadata,
+ * the original .eml or attachments (R2).
+ */
+export async function canReadMessage(
+	db: AppDatabase,
+	user: Principal,
+	message: { mailboxId: string | null; userId: string; status: string },
+): Promise<boolean> {
+	if (!message.mailboxId) return false;
+	if (message.status === "draft") return message.userId === user.id && (await can(db, user, message.mailboxId, "send"));
+	return can(db, user, message.mailboxId, "receive");
+}
+
+/** List filter: other accounts' drafts never show, and the author's only where they can send. */
+export function draftVisibility(userId: string, sendMailboxIds: string[]) {
+	return or(ne(messages.status, "draft"), and(eq(messages.userId, userId), mailboxScope(messages.mailboxId, sendMailboxIds)))!;
 }
 
 /** Display label kept for the existing UI; derived from the grant, never read from `permission`. */

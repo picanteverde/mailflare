@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { apiKeys, mcpKeyMailboxes, users } from "@/db/schema";
 import { parseScopes, verifyApiKey } from "@/lib/api-keys";
 import type { ApiAuthResult } from "@/lib/api/key-auth-types";
+import { listAccessibleMailboxIds } from "@/lib/mailboxes/access";
 import { ADMIN_API_KEY_SCOPES } from "@/lib/api/scopes";
 
 const LAST_USED_WRITE_INTERVAL_MS = 60_000;
@@ -35,7 +36,11 @@ export async function authenticateApiKeyValue(env: CloudflareEnv, key: string): 
 		const allowed = candidate.mailboxScopeEnabled
 			? await db.select({ mailboxId: mcpKeyMailboxes.mailboxId }).from(mcpKeyMailboxes).where(eq(mcpKeyMailboxes.keyId, candidate.id))
 			: null;
-		return { userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds: allowed?.map((row) => row.mailboxId) ?? null, user };
+		// picanteverde fork: a key never reaches past its account's current grants. Re-read on
+		// every request, so revoking a grant or disabling the account applies to keys at once.
+		const granted = new Set(await listAccessibleMailboxIds(db, user));
+		const mailboxIds = allowed ? allowed.map((row) => row.mailboxId).filter((id) => granted.has(id)) : null;
+		return { userId: user.id, email: user.email, scopes: scopes.some((scope) => ADMIN_SCOPES.has(scope)) ? scopes.filter((scope) => ADMIN_SCOPES.has(scope)) : scopes, mailboxIds, user };
 	}
 	return null;
 }

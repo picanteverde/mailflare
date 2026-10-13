@@ -5,7 +5,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { authenticateApiKey, requireScope } from "@/lib/api/auth";
 import { getDb } from "@/db";
 import { messages, users } from "@/db/schema";
-import { getMailboxAccessLevel, listAccessibleMailboxIds } from "@/lib/mailboxes/access";
+import { draftVisibility, getMailboxAccessLevel, listAccessibleMailboxIds, mailboxScope } from "@/lib/mailboxes/access";
 import { buildSearchConditions } from "@/lib/search/conditions";
 import { getRequestTimeZone } from "@/lib/time/utils";
 
@@ -39,14 +39,10 @@ export async function GET(request: Request) {
 		conditions.push(eq(messages.mailboxId, mailboxId));
 	} else {
 		const accessibleMailboxIds = (await listAccessibleMailboxIds(db, user)).filter((id) => !auth.mailboxIds || auth.mailboxIds.includes(id));
-		if (accessibleMailboxIds.length > 0) {
-			conditions.push(inArray(messages.mailboxId, accessibleMailboxIds));
-		} else if (auth.mailboxIds) {
-			return NextResponse.json({ messages: [] });
-		} else {
-			conditions.push(eq(messages.userId, auth.userId));
-		}
+		if (accessibleMailboxIds.length === 0) return NextResponse.json({ messages: [] });
+		conditions.push(mailboxScope(messages.mailboxId, accessibleMailboxIds));
 	}
+	conditions.push(draftVisibility(user.id, await listAccessibleMailboxIds(db, user, "send")));
 	if (direction === "inbound" || direction === "outbound") {
 		conditions.push(eq(messages.direction, direction));
 	}

@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { normalizeEmailAddress } from "@/lib/email/address";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess, getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { getPersonalIdentityForAddress, syncPersonalIdentity } from "@/lib/profile/sync";
 import type { ContactRequestInput } from "./types";
 import { getContactByEmail, saveManualContactName, toContactDetails } from "./utils";
@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, body.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, body.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

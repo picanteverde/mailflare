@@ -13,7 +13,7 @@ import type { JmapContext, JmapMethodHandler } from "./types";
 export async function buildIdentities(ctx: JmapContext) {
 	const list: Array<Record<string, unknown>> = [];
 	for (const mailbox of await listJmapMailboxes(ctx)) {
-		if (mailbox.permission === "read_only") continue;
+		if (!mailbox.canSend) continue;
 		for (const address of await listSendableAddresses(ctx, mailbox)) {
 			list.push({
 				id: identityId(mailbox.id, address),
@@ -67,7 +67,7 @@ export const emailSubmissionSet: JmapMethodHandler = async (ctx, args) => {
 		const emailId = ctx.createdIds[String(value.emailId).replace(/^#/, "")] ?? String(value.emailId ?? "");
 		const identity = typeof value.identityId === "string" ? decodeIdentityId(value.identityId) : null;
 		const accessible = await listJmapMailboxes(ctx);
-		if (!identity || !accessible.some((mailbox) => mailbox.id === identity.mailboxId && mailbox.permission !== "read_only")) {
+		if (!identity || !accessible.some((mailbox) => mailbox.id === identity.mailboxId && mailbox.canSend)) {
 			notCreated[creationId] = { type: "invalidProperties", properties: ["identityId"] };
 			continue;
 		}

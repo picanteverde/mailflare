@@ -19,7 +19,7 @@ export async function DELETE(request: Request, { params }: DraftAttachmentRouteP
 	const db = getDb(env);
 	const [draft] = await db.select().from(messages).where(eq(messages.id, id)).limit(1);
 
-	if (!userOwnsDraft(draft, user.id)) {
+	if (!(await userOwnsDraft(db, draft, user.id))) {
 		return NextResponse.json({ error: "Draft not found" }, { status: 404 });
 	}
 

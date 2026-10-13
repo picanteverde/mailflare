@@ -5,7 +5,7 @@ import { getDb } from "@/db";
 import { folders, routingRules } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { newId } from "@/lib/ids";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import { routingRuleSchema } from "@/lib/validators";
 
 export async function GET(request: Request) {
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, mailboxId);
+	const access = await getAdminMailboxAccess(db, user, mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, parsed.data.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, parsed.data.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

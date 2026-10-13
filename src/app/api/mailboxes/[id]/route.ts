@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { mailboxes, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { can, getAdminMailboxAccess, getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { ensureMailboxDomainRouting, removeMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 import { isPrimaryMailbox, tracksAccountIdentity } from "@/lib/profile/identity-utils";
 import { syncPersonalIdentity } from "@/lib/profile/sync";
@@ -51,7 +51,8 @@ export async function PATCH(request: Request, { params }: MailboxRouteParams) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, id);
+	// picanteverde fork: mailbox settings are admin-only and need no mail grant.
+	const access = await getAdminMailboxAccess(db, user, id);
 	const [existing] = await selectMailboxForUser(db, user.id, id);
 
 	if (!existing || !access?.canManage) {
@@ -119,12 +120,8 @@ export async function DELETE(request: Request, { params }: MailboxRouteParams) {
 	const [mailbox] = await db.select().from(mailboxes).where(eq(mailboxes.id, id)).limit(1);
 	if (!mailbox) return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 
-	let allowed = mailbox.userId === user.id && user.canManageMailboxes;
-	if (!allowed && user.role === "admin") {
-		const [owner] = await db.select({ createdByUserId: users.createdByUserId }).from(users).where(eq(users.id, mailbox.userId)).limit(1);
-		allowed = mailbox.userId === user.id || owner?.createdByUserId === user.id;
-	}
-	if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+	// picanteverde fork: deleting a mailbox destroys its mail, so only an enabled admin may (access design §2).
+	if (!(await can(db, user, mailbox.id, "admin"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
 	try {
 		await removeMailboxDomainRouting(env, db, {

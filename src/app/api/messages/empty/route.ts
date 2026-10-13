@@ -5,7 +5,7 @@ import { messages } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/cookies";
 import { getEnv } from "@/lib/cloudflare";
 import { permanentlyDeleteMessages } from "@/lib/email/permanent-delete";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import { isPermanentDeleteFolder } from "../bulk/utils";
 import type { EmptyFolderPayload } from "./types";
 import { EMPTY_FOLDER_BATCH_SIZE } from "./utils";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, payload.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, payload.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}

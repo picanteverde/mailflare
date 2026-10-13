@@ -7,7 +7,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { deleteAvatarImages, getAvatarImageResponse, getOptimizedAvatarFiles, storeAvatarImages } from "@/lib/avatar-images";
 import { getContactId } from "@/lib/contacts/utils";
 import { normalizeEmailAddress } from "@/lib/email/address";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess, getMailboxAccessLevel } from "@/lib/mailboxes/access";
 import { avatarKeyFor } from "@/app/api/profile/avatar/utils";
 import { getPersonalIdentityForAddress, syncPersonalIdentity } from "@/lib/profile/sync";
 import { contactAvatarKeyFor } from "./utils";
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, mailboxId);
+	const access = await getAdminMailboxAccess(db, user, mailboxId);
 	if (!access?.canManage) return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	const account = await getPersonalIdentityForAddress(db, access.mailbox.userId, email);
 	if (account) {
@@ -98,7 +98,7 @@ export async function DELETE(request: Request) {
 	if (!mailboxId || !email) return NextResponse.json({ error: "Mailbox and contact are required" }, { status: 400 });
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, mailboxId);
+	const access = await getAdminMailboxAccess(db, user, mailboxId);
 	if (!access?.canManage) return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	const account = await getPersonalIdentityForAddress(db, access.mailbox.userId, email);
 	if (account) {

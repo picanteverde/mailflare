@@ -7,7 +7,7 @@ import { getEnv } from "@/lib/cloudflare";
 import { RequestBodyTooLargeError } from "@/lib/http/errors";
 import { getImportMessageUserId } from "@/lib/import/destination";
 import { importMessagesToMailbox } from "@/lib/import/service";
-import { getMailboxAccessLevel } from "@/lib/mailboxes/access";
+import { getAdminMailboxAccess } from "@/lib/mailboxes/access";
 import { parseImportForm } from "./utils";
 
 export async function POST(request: Request) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 	}
 
 	const db = getDb(env);
-	const access = await getMailboxAccessLevel(db, user, input.mailboxId);
+	const access = await getAdminMailboxAccess(db, user, input.mailboxId);
 	if (!access?.canManage) {
 		return NextResponse.json({ error: "Mailbox not found" }, { status: 404 });
 	}
