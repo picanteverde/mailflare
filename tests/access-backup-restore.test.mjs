@@ -39,9 +39,6 @@ async function seeded(t) {
 	const database = new SqliteDatabase(":memory:");
 	t.after(() => database.db.close());
 	await applyMigrations(database, join(root, "drizzle/migrations"));
-	// Upstream gap: BACKUP_TABLES does not list these 0054-0057 tables, so export aborts on
-	// any current database. Dropped here so the restore path can be exercised; tracked separately.
-	database.db.exec("DROP TABLE drive_upload_parts; DROP TABLE drive_shares; DROP TABLE drive_items; DROP TABLE push_subscriptions;");
 	database.db.exec(`
 		INSERT INTO users (id, email, password_hash, name, role, is_primary_admin, created_at) VALUES
 			('admin', 'admin@ex.com', 'x', 'Admin', 'admin', 1, 1), ('bob', 'bob@ex.com', 'x', 'Bob', 'user', 0, 1);
