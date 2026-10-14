@@ -628,18 +628,18 @@ export function ComposeForm({
 					trailing={
 						<>
 							{/* picanteverde fork: on phones one "Cc/Bcc" toggle instead of two buttons squeezing To. */}
-							{isMobile && !showCc && !showBcc && (
-								<button type="button" className="h-9 rounded px-1.5 hover:text-neutral-800" onClick={() => { setShowCc(true); setShowBcc(true); }}>
+							{!showCc && !showBcc && (
+								<button type="button" className="h-11 rounded px-1.5 hover:text-neutral-800 md:hidden" onClick={() => { setShowCc(true); setShowBcc(true); }}>
 									{t("compose.cc")}/{t("compose.bcc")}
 								</button>
 							)}
-							{!isMobile && !showCc && (
-								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowCc(true)}>
+							{!showCc && (
+								<button type="button" className="rounded px-1 hover:text-neutral-800 max-md:hidden" onClick={() => setShowCc(true)}>
 									{t("compose.cc")}
 								</button>
 							)}
-							{!isMobile && !showBcc && (
-								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowBcc(true)}>
+							{!showBcc && (
+								<button type="button" className="rounded px-1 hover:text-neutral-800 max-md:hidden" onClick={() => setShowBcc(true)}>
 									{t("compose.bcc")}
 								</button>
 							)}

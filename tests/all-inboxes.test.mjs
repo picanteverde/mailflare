@@ -25,3 +25,11 @@ test("All inboxes hides Empty folder and the per-mailbox custom folders", () => 
 	assert.match(nav, /!minimal && !viewAll && \(\s*\n\s*<NavSectionHeader label=\{t\("navigation\.folders"\)\}/);
 	assert.match(nav, /!viewAll && \(minimal \|\| foldersSectionOpen\) && <ReorderableList/);
 });
+
+test("the avatar-menu list shows every mailbox with the current one checked (QA #13)", () => {
+	const selector = read("src/components/mailbox-selector.tsx");
+	assert.doesNotMatch(selector, /otherMailboxes/);
+	assert.match(selector, /inboxesOpen && mailboxes\.map\(/);
+	assert.match(selector, /current=\{!viewAll && mailbox\.id === selectedMailbox\?\.id\}/);
+	assert.match(selector, /\{t\("account\.inboxes", \{ count: mailboxes\.length \}\)\}/);
+});

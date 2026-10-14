@@ -26,4 +26,6 @@ export type MailboxAccountRowProps = {
 	unread: number;
 	avatarUrl?: string;
 	onSelect: () => void;
+	/** picanteverde fork: the mailbox currently shown (checked in the list). */
+	current?: boolean;
 };

@@ -36,6 +36,15 @@ export async function getAgentProviderConfig(env: CloudflareEnv): Promise<AgentP
 	return { provider: "cloudflare", preset: "openai", baseUrl: "", apiKey: "", model: DEFAULT_CLOUDFLARE_MODEL, models: [DEFAULT_CLOUDFLARE_MODEL], rates, source: "default" };
 }
 
+/**
+ * picanteverde fork: whether the configured provider can actually answer. The "default"
+ * fallback names a Cloudflare model even when the Worker has no AI binding.
+ */
+export function isAgentProviderUsable(env: CloudflareEnv, config: AgentProviderConfig): boolean {
+	if (config.provider === "cloudflare") return !!env.AI;
+	return !!config.baseUrl && !!config.apiKey && !!config.model;
+}
+
 export async function getAgentProviderPublicConfig(env: CloudflareEnv): Promise<AgentProviderPublicConfig> {
 	const { apiKey, ...config } = await getAgentProviderConfig(env);
 	return { ...config, hasApiKey: !!apiKey, configured: config.provider === "cloudflare" ? !!env.AI && config.models.length > 0 : !!apiKey && !!config.baseUrl && config.models.length > 0 };

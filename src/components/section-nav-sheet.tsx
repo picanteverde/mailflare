@@ -40,7 +40,7 @@ export function SectionNavSheet({ label, title, children, className }: SectionNa
 				onClick={() => setOpen(true)}
 				aria-haspopup="dialog"
 				aria-expanded={open}
-				className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg md:hidden"
+				className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-40 flex min-h-11 -translate-x-1/2 items-center gap-2 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg md:hidden"
 			>
 				<span className="max-w-[60vw] truncate">{label}</span>
 				<ChevronUp size={16} aria-hidden="true" />
