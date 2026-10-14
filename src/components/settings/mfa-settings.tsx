@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, ShieldCheck, ShieldOff } from "lucide-react";
+import { Copy, Share, ShieldCheck, ShieldOff } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import type { MfaStatusResponse } from "./types";
 import type { MfaDialogStep } from "./mfa-settings-types";
@@ -37,6 +38,12 @@ export function MfaSettings() {
 
 	return (
 		<div className="space-y-4">
+			{/* picanteverde fork: two-factor is mandatory here; say why this page appeared (QA mobile #5). */}
+			{!status.enabled && (
+				<div role="status" className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+					{t("mfa.requiredBanner")}
+				</div>
+			)}
 			<div className="flex items-start gap-3 rounded-2xl bg-neutral-50 p-4">
 				{status.enabled ? (
 					<ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
@@ -97,6 +104,20 @@ function RecoveryCodesList({ codes }: { codes: string[] }) {
 				<Copy className="h-4 w-4" />
 				{copied ? t("common.copied") : t("mfa.copyCodes")}
 			</Button>
+			{/* picanteverde fork: on phones, the share sheet saves codes to Notes/Files/a password manager (QA mobile #10). */}
+			{typeof navigator !== "undefined" && "share" in navigator && (
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={() => {
+						void navigator.share({ text: codes.join("\n") }).catch(() => undefined);
+					}}
+				>
+					<Share className="h-4 w-4" />
+					{t("common.share")}
+				</Button>
+			)}
 			<p className="text-xs text-neutral-500">
 				{t("mfa.codesHint")}
 			</p>
@@ -179,7 +200,7 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 						</DialogHeader>
 						<div className="space-y-2">
 							<Label htmlFor="mfa-password">{t("common.password")}</Label>
-							<Input id="mfa-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+							<PasswordInput id="mfa-password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
 						</div>
 						{error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 						<Button type="submit" disabled={busy}>{busy ? t("common.pleaseWait") : t("common.continue")}</Button>
@@ -268,7 +289,7 @@ function DisableDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCh
 					</DialogHeader>
 					<div className="space-y-2">
 						<Label htmlFor="mfa-off-password">{t("common.password")}</Label>
-						<Input id="mfa-off-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+						<PasswordInput id="mfa-off-password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 					</div>
 					<div className="space-y-2">
 						<Label htmlFor="mfa-off-code">{t("mfa.code")}</Label>
@@ -330,7 +351,7 @@ function RecoveryCodesDialog({ open, onOpenChange, onDone }: { open: boolean; on
 						</DialogHeader>
 						<div className="space-y-2">
 							<Label htmlFor="rc-password">{t("common.password")}</Label>
-							<Input id="rc-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
+							<PasswordInput id="rc-password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus />
 						</div>
 						{error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 						<Button type="submit" disabled={busy}>{busy ? t("common.pleaseWait") : t("mfa.generate")}</Button>

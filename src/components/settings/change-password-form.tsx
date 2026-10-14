@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { updatePassword } from "./utils";
 
@@ -42,9 +43,8 @@ export function ChangePasswordForm() {
 		<form onSubmit={onSubmit} className="space-y-4">
 			<div className="space-y-2">
 				<Label htmlFor="currentPassword">{t("settings.password.current")}</Label>
-				<Input
+				<PasswordInput
 					id="currentPassword"
-					type="password"
 					autoComplete="current-password"
 					value={currentPassword}
 					onChange={(event) => setCurrentPassword(event.target.value)}
@@ -53,9 +53,8 @@ export function ChangePasswordForm() {
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="newPassword">{t("settings.password.new")}</Label>
-				<Input
+				<PasswordInput
 					id="newPassword"
-					type="password"
 					autoComplete="new-password"
 					value={newPassword}
 					onChange={(event) => setNewPassword(event.target.value)}
@@ -65,9 +64,8 @@ export function ChangePasswordForm() {
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="confirmPassword">{t("settings.password.confirm")}</Label>
-				<Input
+				<PasswordInput
 					id="confirmPassword"
-					type="password"
 					autoComplete="new-password"
 					value={confirmPassword}
 					onChange={(event) => setConfirmPassword(event.target.value)}

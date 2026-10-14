@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { authFetch } from "@/lib/auth/client";
@@ -97,7 +98,7 @@ export default function AccountsPage() {
 		<Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-h-[calc(100dvh-4rem)] w-[min(640px,calc(100vw-32px))] overflow-y-auto"><DialogHeader><DialogTitle>{t("accounts.addTitle")}</DialogTitle><DialogDescription>{t("accounts.addDescription")}</DialogDescription></DialogHeader><form onSubmit={createAccount}><fieldset disabled={saving} className="space-y-4">
 			<div className="space-y-2"><Label htmlFor="account-login">{t("access.createLogin")}</Label><Input id="account-login" value={login} onChange={(event) => setLogin(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} aria-describedby="account-login-hint" required /><p id="account-login-hint" className="text-xs leading-5 text-neutral-500">{t("access.createLoginHint")}</p></div>
 			<div className="space-y-2"><Label htmlFor="account-name">{t("access.createName")}</Label><Input id="account-name" value={name} maxLength={100} onChange={(event) => setName(event.target.value)} /></div>
-			<div className="space-y-2"><Label htmlFor="account-password">{t("auth.password")}</Label><Input id="account-password" type="password" minLength={12} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="account-password-hint" required /><p id="account-password-hint" className="text-xs leading-5 text-neutral-500">{t("access.createPasswordHint")}</p></div>
+			<div className="space-y-2"><Label htmlFor="account-password">{t("auth.password")}</Label><PasswordInput id="account-password" minLength={12} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby="account-password-hint" required /><p id="account-password-hint" className="text-xs leading-5 text-neutral-500">{t("access.createPasswordHint")}</p></div>
 			{canChooseRole && <div className="space-y-2"><Label htmlFor="account-role">{t("accounts.role")}</Label><Select id="account-role" value={role} onChange={(event) => setRole(event.target.value as "admin" | "user")} containerClassName="h-10 w-full bg-white px-0" className="px-3 text-sm"><option value="user">{t("accounts.roleUser")}</option><option value="admin">{t("accounts.roleAdmin")}</option></Select></div>}
 			{message && <p role="alert" className="text-sm text-red-600">{message}</p>}<Button type="submit" disabled={saving || !login.trim() || password.length < 12}>{saving ? t("accounts.creating") : t("accounts.create")}</Button>
 		</fieldset></form></DialogContent></Dialog>

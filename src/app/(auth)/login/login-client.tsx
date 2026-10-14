@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { TurnstileField } from "@/components/auth/turnstile";
 import { submitLogin, submitMfaCode } from "./utils";
@@ -163,10 +164,10 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
               {t("auth.forgotPassword")}
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
+           
             autoComplete="current-password"
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "login-error" : undefined}

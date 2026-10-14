@@ -9,6 +9,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TurnstileField } from "@/components/auth/turnstile";
@@ -409,10 +410,10 @@ export function RegisterClient() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{t("auth.password")}</Label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
+             
               minLength={8}
               autoComplete="new-password"
               required

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import type { ManagedAccount } from "../types";
 import { fetchManagedAccount } from "../utils";
@@ -40,9 +41,8 @@ export default function AccountPasswordPage() {
 					<>
 						<div className="space-y-2">
 							<Label htmlFor="account-new-password">{t("account.password.new")}</Label>
-							<Input
+							<PasswordInput
 								id="account-new-password"
-								type="password"
 								autoComplete="new-password"
 								minLength={8}
 								maxLength={128}
