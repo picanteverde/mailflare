@@ -79,6 +79,8 @@ export async function POST(request: Request) {
 		// picanteverde fork: organizing needs receive; destroying mail is admin-only (access design §2).
 		const canUpdate = payload.action === "delete" ? access?.canManage : access?.canOrganize;
 		if (!canUpdate) continue;
+		// picanteverde fork: "unarchive" only restores archived mail (it is the Undo of archive).
+		if (payload.action === "unarchive" && message.status !== "archived") continue;
 		allowedMessageIds.push(message.id);
 	}
 

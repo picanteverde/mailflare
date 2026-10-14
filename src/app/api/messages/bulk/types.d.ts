@@ -1,4 +1,5 @@
-export type BulkMessageAction = "archive" | "trash" | "spam" | "read" | "unread" | "inbox" | "folder" | "delete";
+/** picanteverde fork: "unarchive" undoes "archive" exactly: back to received, snooze kept. */
+export type BulkMessageAction = "archive" | "unarchive" | "trash" | "spam" | "read" | "unread" | "inbox" | "folder" | "delete";
 
 /** Folders whose messages can be permanently deleted or emptied in one go. */
 export type PermanentDeleteFolder = "trash" | "spam";

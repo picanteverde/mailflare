@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessageList, getMessageQueryParams } from "@/hooks/utils";
 import { useCompose } from "@/components/compose/compose-context";
 import { PULL_THRESHOLD, usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { createInfinitePager } from "./infinite-pager";
+import { applyRowAction, createInfinitePager } from "./infinite-pager";
 import type { MouseEvent } from "react";
 import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, MailPlus, RefreshCw, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -321,7 +321,8 @@ export function MessageFolderPage({
 		setUndoIds(null);
 		if (!ids?.length) return;
 		try {
-			await runBulkMessageAction(ids, "inbox", false);
+			// "unarchive" restores exactly: snoozed mail goes back to Snoozed, not the Inbox.
+			await runBulkMessageAction(ids, "unarchive", false);
 		} finally {
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		}
@@ -358,10 +359,28 @@ export function MessageFolderPage({
 		pager.reset();
 		setMorePages([]);
 	}, [pager, listKey]);
+	const morePagesRef = useRef<Message[]>([]);
+	morePagesRef.current = morePages;
 	useEffect(() => {
-		// A refreshed first page shifts offsets; start counting again (results are de-duplicated).
+		// A refreshed first page (new mail, an action, pull-to-refresh) can shift every later
+		// offset. Start a new pager generation and reload the range already shown after it, so
+		// appended rows are never stale and nothing falls into a gap (QA on PR #16).
 		pager.reset();
+		const extra = morePagesRef.current.length;
+		if (!isMobile || extra === 0) return;
+		const gen = pager.generation();
+		const params = getMessageQueryParams(config.folder, listMailboxId, { query, limit: Math.min(extra, 100), offset: messages.length, read: unreadOnly ? "unread" : "all", group: grouped ? "thread" : undefined }, config.folderId);
+		void fetchMessageList(params, true).then((data) => {
+			if (gen === pager.generation()) setMorePages(data.messages ?? []);
+		}, () => undefined);
+		// Only a new first page should trigger this; the other inputs change listKey (handled above).
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pager, messages]);
+	/** picanteverde fork: apply a row/bulk action to appended rows at once (the refresh above then confirms it). */
+	const patchMorePages = useCallback((ids: string[], action: string) => {
+		if (!morePagesRef.current.length) return;
+		setMorePages((current) => applyRowAction(current, ids, action));
+	}, []);
 	const listedMessages = useMemo(() => {
 		if (!isMobile || morePages.length === 0) return messages;
 		const seen = new Set(messages.map((message) => message.id));
@@ -373,15 +392,19 @@ export function MessageFolderPage({
 		const { loaded, total: count, key } = loadState.current;
 		const nextOffset = pager.next(loaded, count);
 		if (nextOffset === null) return;
+		const gen = pager.generation();
 		try {
 			const params = getMessageQueryParams(config.folder, listMailboxId, { query, limit: pageSize, offset: nextOffset, read: unreadOnly ? "unread" : "all", group: grouped ? "thread" : undefined }, config.folderId);
 			const data = await fetchMessageList(params);
-			if (loadState.current.key !== key) return;
+			if (loadState.current.key !== key || gen !== pager.generation()) {
+				pager.done(0, gen); // stale: frees the in-flight slot, result discarded
+				return;
+			}
 			const received = data.messages ?? [];
-			pager.done(received.length);
+			pager.done(received.length, gen);
 			if (received.length) setMorePages((current) => [...current, ...received]);
 		} catch {
-			pager.failed(nextOffset);
+			pager.failed(nextOffset, gen);
 		}
 	}, [pager, config.folder, config.folderId, listMailboxId, query, pageSize, unreadOnly, grouped]);
 	useEffect(() => {
@@ -392,7 +415,9 @@ export function MessageFolderPage({
 		}, { root: pullScrollerRef.current, rootMargin: "600px 0px" });
 		observer.observe(sentinel);
 		return () => observer.disconnect();
-	}, [isMobile, loadMore, pullScrollerRef]);
+		// morePages.length: re-observe after each append, so a page that added few rows (or a
+		// sentinel still in view) loads the next one instead of stalling (QA on PR #16).
+	}, [isMobile, loadMore, pullScrollerRef, morePages.length]);
 	// picanteverde fork: once this inbox has loaded, warm the first page of the account's other
 	// inboxes so switching mailbox (from the account menu on phones) shows mail at once.
 	useEffect(() => {
@@ -555,7 +580,9 @@ export function MessageFolderPage({
 			if (inboxUnreadDelta) dispatchMessageCountsDelta({ inboxUnreadDelta });
 		}
 		try {
-			await runBulkMessageAction(expandSelectedIds(selectedIds), action, true, folderId);
+			const bulkIds = expandSelectedIds(selectedIds);
+			await runBulkMessageAction(bulkIds, action, true, folderId);
+			patchMorePages(bulkIds, action);
 			setSelectedMessages([]);
 		} catch (error) {
 			if (readValue !== null) {
@@ -704,6 +731,7 @@ export function MessageFolderPage({
 								setActionError(null);
 								const ids = expandSelectedIds([messageId]);
 								return runBulkMessageAction(ids, action, action !== "read" && action !== "unread").then((result) => {
+									patchMorePages(ids, action);
 									// picanteverde fork: archiving from a row (swipe or button) can be undone (QA mobile #34).
 									if (action === "archive") showUndo(ids);
 									return result;

@@ -11,7 +11,7 @@ const scratch = mkdtempSync(join(root, "node_modules", "mailflare-gestures-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 await build({
 	stdin: {
-		contents: `export * from "./src/components/messages/row-gesture-controller.ts"; export { createInfinitePager } from "./src/components/messages/infinite-pager.ts";`,
+		contents: `export * from "./src/components/messages/row-gesture-controller.ts"; export { applyRowAction, createInfinitePager } from "./src/components/messages/infinite-pager.ts"; export { getStatusForBulkAction, isAllowedBulkMessageAction } from "./src/app/api/messages/bulk/utils.ts";`,
 		resolveDir: root,
 		sourcefile: "entry.ts",
 	},
@@ -105,30 +105,62 @@ test("rows without a swipe action do not move", () => {
 
 test("infinite pager: never the same offset twice, one request at a time, stops at the end", () => {
 	const p = g.createInfinitePager();
+	let gen = p.generation();
 	assert.equal(p.next(25, 60), 25);
 	assert.equal(p.next(25, 60), null, "in flight");
-	p.done(25);
+	p.done(25, gen);
 	assert.equal(p.next(25, 60), null, "same offset again");
 	assert.equal(p.next(50, 60), 50);
-	p.done(10);
+	p.done(10, gen);
 	assert.equal(p.next(60, 60), null, "end of list");
 	const empty = g.createInfinitePager();
 	assert.equal(empty.next(25, 100), 25);
-	empty.done(0);
-	assert.equal(empty.next(25, 100), null);
+	empty.done(0, empty.generation());
 	assert.equal(empty.next(30, 100), null, "an empty page stops it");
 	const retry = g.createInfinitePager();
 	assert.equal(retry.next(25, 100), 25);
-	retry.failed(25);
+	retry.failed(25, retry.generation());
 	assert.equal(retry.next(25, 100), 25, "a failed page can be retried");
-	retry.reset();
-	assert.equal(retry.next(0, 100), 0);
+});
+
+test("pager reset keeps the in-flight request, so pages never overlap; stale results don't stop it (QA on #16)", () => {
+	const p = g.createInfinitePager();
+	const oldGen = p.generation();
+	assert.equal(p.next(25, 100), 25);
+	p.reset();
+	assert.notEqual(p.generation(), oldGen);
+	assert.equal(p.next(25, 100), null, "still one request in flight after reset");
+	p.done(0, oldGen); // the stale request settles with nothing new
+	assert.equal(p.next(25, 100), 25, "a stale empty result does not mark the list exhausted");
+});
+
+test("an action on an appended row updates what is shown (QA blocker on #16)", () => {
+	const rows = [{ id: "a", read: false, threadUnread: 2 }, { id: "b", read: false }, { id: "c", read: true }];
+	assert.deepEqual(g.applyRowAction(rows, ["b"], "archive").map((r) => r.id), ["a", "c"]);
+	assert.deepEqual(g.applyRowAction(rows, ["a", "c"], "trash").map((r) => r.id), ["b"]);
+	const read = g.applyRowAction(rows, ["a"], "read");
+	assert.equal(read[0].read, true);
+	assert.equal(read[0].threadUnread, 0);
+	assert.equal(g.applyRowAction(rows, ["c"], "unread")[2].read, false);
+	assert.strictEqual(g.applyRowAction(rows, ["zzz"], "read")[1], rows[1], "untouched rows keep identity");
+});
+
+test("unarchive restores archived mail to received and is an allowed bulk action", () => {
+	assert.equal(g.isAllowedBulkMessageAction("unarchive"), true);
+	assert.equal(g.getStatusForBulkAction("unarchive"), "received");
+	const route = readFileSync(join(root, "src/app/api/messages/bulk/route.ts"), "utf8");
+	assert.match(route, /if \(payload\.action === "unarchive" && message\.status !== "archived"\) continue;/);
+	assert.match(route, /\(payload\.action === "inbox" \? \{ snoozedUntil: null \} : \{\}\)/, "only inbox clears snooze");
 });
 
 test("wiring: archive can be undone; checkboxes stay reachable without gestures", () => {
 	const page = readFileSync(join(root, "src/components/messages/message-folder-page.tsx"), "utf8");
 	assert.match(page, /if \(action === "archive"\) showUndo\(ids\);/);
-	assert.match(page, /await runBulkMessageAction\(ids, "inbox", false\);/);
+	assert.match(page, /await runBulkMessageAction\(ids, "unarchive", false\);/);
+	assert.match(page, /patchMorePages\(ids, action\);/);
+	assert.match(page, /patchMorePages\(bulkIds, action\);/);
+	assert.match(page, /if \(gen === pager\.generation\(\)\) setMorePages\(data\.messages \?\? \[\]\);/, "refreshed first page reloads the appended range");
+	assert.match(page, /\[isMobile, loadMore, pullScrollerRef, morePages\.length\]/, "re-observe after each append");
 	assert.match(page, /!selectionMode && "max-md:sr-only"/, "visually hidden, still accessible");
 	assert.match(page, /onLongPress=\{\(\) => onSelectedChange\(message\.id, true\)\}/);
 	assert.match(page, /isMobile && <div ref=\{sentinelRef\}/);
