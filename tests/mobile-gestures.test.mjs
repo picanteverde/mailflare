@@ -165,3 +165,11 @@ test("wiring: archive can be undone; checkboxes stay reachable without gestures"
 	assert.match(page, /onLongPress=\{\(\) => onSelectedChange\(message\.id, true\)\}/);
 	assert.match(page, /isMobile && <div ref=\{sentinelRef\}/);
 });
+
+test("Undo reports a failure; bulk moves are audited as email.move, not email.delete", () => {
+	const page = readFileSync(join(root, "src/components/messages/message-folder-page.tsx"), "utf8");
+	const undo = page.slice(page.indexOf("async function undoArchive"), page.indexOf("async function undoArchive") + 600);
+	assert.match(undo, /\} catch \{[\s\S]*setActionError\(t\("actions\.error\.update"\)\);/);
+	const route = readFileSync(join(root, "src/app/api/messages/bulk/route.ts"), "utf8");
+	assert.match(route, /payload\.action === "unread" \? "email\.read" : "email\.move"/);
+});

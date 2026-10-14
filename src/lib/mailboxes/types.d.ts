@@ -28,6 +28,8 @@ export type AuditAction =
 	| "email.send"
 	| "email.read"
 	| "email.delete"
+	/** picanteverde fork: archive, unarchive, trash, inbox or folder (nothing is destroyed). */
+	| "email.move"
 	| "permission.change"
 	| "mailbox.access";
 

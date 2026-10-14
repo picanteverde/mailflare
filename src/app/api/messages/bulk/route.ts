@@ -113,7 +113,8 @@ export async function POST(request: Request) {
 			createAuditLog(env, {
 				actorUserId: user.id,
 				messageId,
-				action: payload.action === "read" || payload.action === "unread" ? "email.read" : "email.delete",
+				// picanteverde fork: moves were logged as email.delete; real deletes return earlier.
+				action: payload.action === "read" || payload.action === "unread" ? "email.read" : "email.move",
 				metadata: { bulkAction: payload.action },
 			}),
 		),
