@@ -1,7 +1,8 @@
 import { and, eq, gt, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import { pushSubscriptions, sessions } from "@/db/schema";
+import { pushSubscriptions, sessions, users } from "@/db/schema";
 import type { NewMessageNotification } from "@/lib/realtime/types";
+import { countInboxUnread } from "./unread";
 
 type VapidConfig = {
 	publicKey: string;
@@ -255,35 +256,49 @@ export async function sendPushNotifications(
 	const subscriptions = await db
 		.select({
 			id: pushSubscriptions.id,
+			userId: pushSubscriptions.userId,
 			endpoint: pushSubscriptions.endpoint,
 			p256dh: pushSubscriptions.p256dh,
 			auth: pushSubscriptions.auth,
+			email: users.email,
 		})
 		.from(pushSubscriptions)
 		.innerJoin(sessions, eq(pushSubscriptions.sessionId, sessions.id))
+		.innerJoin(users, eq(users.id, pushSubscriptions.userId))
 		.where(
 			and(
 				inArray(pushSubscriptions.userId, uniqueUserIds),
 				gt(sessions.expiresAt, new Date()),
+				// picanteverde fork: a disabled account gets no pushes at all.
+				eq(users.disabled, false),
 			),
 		);
 
+	// picanteverde fork: each account's badge is its own unread total, recomputed from its
+	// grants at send time (a revoked mailbox stops counting at once). Only the number is added.
+	const unreadByUser = new Map<string, number>();
+	for (const subscription of subscriptions) {
+		if (unreadByUser.has(subscription.userId)) continue;
+		unreadByUser.set(subscription.userId, await countInboxUnread(db, { id: subscription.userId, email: subscription.email }));
+	}
+
 	const title = (payload.subject || "New email").slice(0, 180);
 	const sender = (payload.fromName ?? payload.from).slice(0, 240);
-	const notificationPayload = JSON.stringify({
+	const notificationPayload = (unread: number) => JSON.stringify({
 		title,
 		body: `From ${sender}`,
 		icon: "/icon-192.png",
 		badge: "/icon-96.png",
 		tag: payload.messageId,
 		url: `/inbox/${payload.messageId}`,
+		unread,
 	});
 
 	await Promise.allSettled(
 		subscriptions.map(async (subscription) => {
 			if (!isSupportedPushEndpoint(subscription.endpoint)) return;
 			try {
-				const response = await sendSubscriptionPush(config, subscription, notificationPayload);
+				const response = await sendSubscriptionPush(config, subscription, notificationPayload(unreadByUser.get(subscription.userId) ?? 0));
 				if (response.status === 404 || response.status === 410) {
 					await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id));
 				} else if (!response.ok) {

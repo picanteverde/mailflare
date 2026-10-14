@@ -16,6 +16,7 @@ import { AssistantOpenContext } from "@/components/agent/assistant-open-state";
 import { Button } from "@/components/ui/button";
 import { LicenseIndicator } from "@/components/license-indicator";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { AppBadgeSync } from "@/components/app-badge-sync";
 import { SidebarProvider } from "@/components/sidebar-state";
 import { SidebarAside, MobileMenuButton } from "@/components/sidebar-aside";
 import { SidebarResizeBoundary } from "@/components/sidebar-resize-boundary";
@@ -44,6 +45,7 @@ export default function DashboardLayout({
 
   return (
     <AuthGuard>
+      <AppBadgeSync />
       <SidebarProvider mobileOverlay>
         <MailboxProvider>
           <ComposeProvider>
