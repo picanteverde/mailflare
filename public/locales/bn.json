@@ -557,6 +557,7 @@
 	"apiKeys.mailboxesLabel": "মেইলবক্স: {list}",
 	"apiKeys.allAccessible": "অ্যাক্সেসযোগ্য সব মেইলবক্স (বিদ্যমান কী)",
 	"common.copy": "কপি করুন",
+	"common.undo": "পূর্বাবস্থায় ফেরান",
 	"common.share": "শেয়ার করুন",
 	"common.copyLabel": "{label} কপি করুন",
 	"emailClients.defaultName": "মেইল অ্যাপ",

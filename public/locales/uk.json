@@ -562,6 +562,7 @@
 	"apiKeys.mailboxesLabel": "Поштові скриньки: {list}",
 	"apiKeys.allAccessible": "Усі доступні поштові скриньки (наявний ключ)",
 	"common.copy": "Копіювати",
+	"common.undo": "Скасувати",
 	"common.share": "Поділитися",
 	"common.copyLabel": "Копіювати: {label}",
 	"emailClients.defaultName": "Поштовий застосунок",

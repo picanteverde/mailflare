@@ -1,8 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import { COMMIT_DISTANCE, createRowGestureController, type SwipeSide } from "./row-gesture-controller";
 
 type SwipeAction = {
 	label: string;
@@ -14,60 +15,52 @@ type SwipeAction = {
 type SwipeableRowProps = {
 	children: ReactNode;
 	// Revealed when dragging left to right.
-	startAction: SwipeAction;
+	startAction?: SwipeAction | null;
 	// Revealed when dragging right to left.
-	endAction: SwipeAction;
+	endAction?: SwipeAction | null;
+	/** picanteverde fork: hold to select (QA mobile #31). */
+	onLongPress?: () => void;
 	disabled?: boolean;
 	role?: string;
 };
 
-const COMMIT_DISTANCE = 88;
-const INTENT_DISTANCE = 10;
-
-// Touch-only swipe gestures; vertical scrolling stays with the browser via touch-action: pan-y.
-export function SwipeableRow({ children, startAction, endAction, disabled, role }: SwipeableRowProps) {
+// Touch-only gestures; vertical scrolling stays with the browser via touch-action: pan-y.
+// The decisions live in row-gesture-controller.ts (axis lock, edge guard, long-press).
+export function SwipeableRow({ children, startAction, endAction, onLongPress, disabled, role }: SwipeableRowProps) {
 	const [offset, setOffset] = useState(0);
 	const [dragging, setDragging] = useState(false);
-	const gesture = useRef<{ x: number; y: number; active: boolean; id: number } | null>(null);
-	const swiped = useRef(false);
+	const pointerId = useRef<number | null>(null);
+	const actions = useRef({ startAction, endAction, onLongPress });
+	actions.current = { startAction, endAction, onLongPress };
+	const controller = useRef<ReturnType<typeof createRowGestureController> | null>(null);
+	if (!controller.current) {
+		controller.current = createRowGestureController({
+			viewportWidth: () => (typeof window === "undefined" ? 0 : window.innerWidth),
+			canSwipe: (side: SwipeSide) => !!(side === "start" ? actions.current.startAction : actions.current.endAction),
+			onOffset: (dx) => {
+				setDragging(dx !== 0);
+				setOffset(dx);
+			},
+			onSwipe: (side) => (side === "start" ? actions.current.startAction : actions.current.endAction)?.onTrigger(),
+			onLongPress: () => actions.current.onLongPress?.(),
+		});
+	}
+	useEffect(() => () => controller.current?.end(true), []);
 
 	function onPointerDown(event: PointerEvent<HTMLDivElement>) {
 		if (disabled || event.pointerType === "mouse") return;
-		gesture.current = { x: event.clientX, y: event.clientY, active: false, id: event.pointerId };
-		swiped.current = false;
+		pointerId.current = event.pointerId;
+		controller.current!.start(event.clientX, event.clientY);
 	}
-
 	function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-		const current = gesture.current;
-		if (!current || current.id !== event.pointerId) return;
-		const dx = event.clientX - current.x;
-		const dy = event.clientY - current.y;
-		if (!current.active) {
-			if (Math.abs(dy) > INTENT_DISTANCE && Math.abs(dy) > Math.abs(dx)) {
-				gesture.current = null;
-				return;
-			}
-			if (Math.abs(dx) < INTENT_DISTANCE) return;
-			current.active = true;
-			setDragging(true);
-			event.currentTarget.setPointerCapture(event.pointerId);
-		}
-		setOffset(dx);
+		if (pointerId.current !== event.pointerId) return;
+		controller.current!.move(event.clientX, event.clientY);
 	}
-
 	function finish(event: PointerEvent<HTMLDivElement>) {
-		const current = gesture.current;
-		if (!current || current.id !== event.pointerId) return;
-		gesture.current = null;
-		if (!current.active) return;
-		swiped.current = true;
+		if (pointerId.current !== event.pointerId) return;
+		pointerId.current = null;
+		controller.current!.end(event.type === "pointercancel");
 		setDragging(false);
-		const dx = event.clientX - current.x;
-		setOffset(0);
-		if (event.type !== "pointercancel") {
-			if (dx >= COMMIT_DISTANCE) startAction.onTrigger();
-			else if (dx <= -COMMIT_DISTANCE) endAction.onTrigger();
-		}
 	}
 
 	const action = offset > 0 ? startAction : offset < 0 ? endAction : null;
@@ -92,14 +85,17 @@ export function SwipeableRow({ children, startAction, endAction, disabled, role 
 				onPointerMove={onPointerMove}
 				onPointerUp={finish}
 				onPointerCancel={finish}
+				onContextMenu={(event) => {
+					// A long-press on iOS/Android would otherwise also open the link preview menu.
+					if (onLongPress) event.preventDefault();
+				}}
 				onClickCapture={(event) => {
-					if (!swiped.current) return;
-					swiped.current = false;
+					if (!controller.current?.consumeClick()) return;
 					event.preventDefault();
 					event.stopPropagation();
 				}}
 				className={clsx("relative bg-white", !dragging && "transition-transform duration-200 ease-out motion-reduce:transition-none")}
-				style={{ transform: offset ? `translateX(${offset}px)` : undefined, touchAction: "pan-y" }}
+				style={{ transform: offset ? `translateX(${offset}px)` : undefined, touchAction: "pan-y", WebkitTouchCallout: onLongPress ? "none" : undefined }}
 			>
 				{children}
 			</div>

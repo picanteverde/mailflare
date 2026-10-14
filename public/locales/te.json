@@ -557,6 +557,7 @@
 	"apiKeys.mailboxesLabel": "మెయిల్‌బాక్స్‌లు: {list}",
 	"apiKeys.allAccessible": "యాక్సెస్ చేయగల అన్ని మెయిల్‌బాక్స్‌లు (ఉన్న కీ)",
 	"common.copy": "కాపీ చేయండి",
+	"common.undo": "రద్దు చేయి",
 	"common.share": "షేర్ చేయండి",
 	"common.copyLabel": "{label} ను కాపీ చేయండి",
 	"emailClients.defaultName": "మెయిల్ యాప్",

@@ -557,6 +557,7 @@
 	"apiKeys.mailboxesLabel": "میل باکسز: {list}",
 	"apiKeys.allAccessible": "تمام قابل رسائی میل باکسز (موجودہ کلید)",
 	"common.copy": "کاپی کریں",
+	"common.undo": "کالعدم کریں",
 	"common.share": "شیئر کریں",
 	"common.copyLabel": "{label} کاپی کریں",
 	"emailClients.defaultName": "میل ایپ",

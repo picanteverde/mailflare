@@ -562,6 +562,7 @@
 	"apiKeys.mailboxesLabel": "Skrzynki pocztowe: {list}",
 	"apiKeys.allAccessible": "Wszystkie dostępne skrzynki pocztowe (istniejący klucz)",
 	"common.copy": "Kopiuj",
+	"common.undo": "Cofnij",
 	"common.share": "Udostępnij",
 	"common.copyLabel": "Kopiuj: {label}",
 	"emailClients.defaultName": "Aplikacja pocztowa",

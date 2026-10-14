@@ -554,6 +554,7 @@
 	"apiKeys.mailboxesLabel": "Kotak surat: {list}",
 	"apiKeys.allAccessible": "Semua kotak surat yang dapat diakses (kunci yang ada)",
 	"common.copy": "Salin",
+	"common.undo": "Urungkan",
 	"common.share": "Bagikan",
 	"common.copyLabel": "Salin {label}",
 	"emailClients.defaultName": "Aplikasi email",

@@ -559,6 +559,7 @@
 	"apiKeys.mailboxesLabel": "મેલબૉક્સ: {list}",
 	"apiKeys.allAccessible": "બધા ઍક્સેસિબલ મેલબૉક્સ (હાલની કી)",
 	"common.copy": "કૉપિ કરો",
+	"common.undo": "પૂર્વવત્ કરો",
 	"common.share": "શેર કરો",
 	"common.copyLabel": "{label} કૉપિ કરો",
 	"emailClients.defaultName": "મેઇલ ઍપ",
