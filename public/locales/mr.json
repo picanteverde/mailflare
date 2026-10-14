@@ -477,6 +477,7 @@
 	"mfa.scanTitle": "कोड स्कॅन करा",
 	"mfa.scanDescription": "तुमचे ऑथेंटिकेटर अ‍ॅप उघडा, हा कोड स्कॅन करून खाते जोडा, नंतर तेथे दिसणारा 6 अंकी कोड टाका.",
 	"mfa.cantScan": "स्कॅन होत नाही? की हाताने टाका",
+	"mfa.openAuthenticator": "ऑथेंटिकेटर अ‍ॅपमध्ये उघडा",
 	"mfa.sixDigitCode": "6 अंकी कोड",
 	"mfa.checking": "तपासले जात आहे...",
 	"mfa.verifyAndTurnOn": "पडताळा आणि सुरू करा",

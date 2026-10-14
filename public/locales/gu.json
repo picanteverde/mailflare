@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "કોડ સ્કૅન કરો",
 	"mfa.scanDescription": "તમારી પ્રમાણીકરણ ઍપ ખોલો, આ કોડ સ્કૅન કરીને એકાઉન્ટ ઉમેરો, પછી બતાવેલો 6 અંકનો કોડ દાખલ કરો.",
 	"mfa.cantScan": "સ્કૅન કરી શકતા નથી? કી જાતે દાખલ કરો",
+	"mfa.openAuthenticator": "ઓથેન્ટિકેટર એપમાં ખોલો",
 	"mfa.sixDigitCode": "6 અંકનો કોડ",
 	"mfa.checking": "તપાસી રહ્યા છીએ...",
 	"mfa.verifyAndTurnOn": "ચકાસો અને ચાલુ કરો",

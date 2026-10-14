@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "코드 스캔",
 	"mfa.scanDescription": "인증 앱을 열고 이 코드를 스캔해 계정을 추가한 다음, 표시되는 6자리 코드를 입력하세요.",
 	"mfa.cantScan": "스캔할 수 없나요? 키를 직접 입력하세요",
+	"mfa.openAuthenticator": "인증 앱에서 열기",
 	"mfa.sixDigitCode": "6자리 코드",
 	"mfa.checking": "확인 중...",
 	"mfa.verifyAndTurnOn": "확인 후 켜기",

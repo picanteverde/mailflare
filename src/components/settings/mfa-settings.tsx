@@ -194,7 +194,13 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 						{/* picanteverde fork: a phone can't scan its own screen. There the code is a link
 						    that opens the authenticator app (otpauth://), and the key is shown with Copy. */}
 						{isMobile && otpauthUrl ? (
-							<a href={otpauthUrl} aria-label={t("mfa.scanTitle")} className="mx-auto block w-40 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+							<>
+								<a href={otpauthUrl} className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-5 font-medium text-white active:bg-blue-700">
+									<ShieldCheck className="h-4 w-4" aria-hidden="true" />
+									{t("mfa.openAuthenticator")}
+								</a>
+								<a href={otpauthUrl} aria-label={t("mfa.openAuthenticator")} className="mx-auto block w-40 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+							</>
 						) : (
 							<div role="img" aria-label={t("mfa.scanTitle")} className="mx-auto w-48 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
 						)}

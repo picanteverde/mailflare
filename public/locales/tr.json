@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Kodu tarayın",
 	"mfa.scanDescription": "Kimlik doğrulayıcı uygulamanızı açın, bu kodu tarayarak bir hesap ekleyin, ardından gösterilen 6 haneli kodu girin.",
 	"mfa.cantScan": "Tarayamıyor musunuz? Anahtarı elle girin",
+	"mfa.openAuthenticator": "Doğrulama uygulamasında aç",
 	"mfa.sixDigitCode": "6 haneli kod",
 	"mfa.checking": "Kontrol ediliyor...",
 	"mfa.verifyAndTurnOn": "Doğrula ve aç",
