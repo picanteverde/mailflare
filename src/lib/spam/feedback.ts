@@ -19,6 +19,15 @@ export async function applySpamFeedback(env: CloudflareEnv, user: SessionUser, m
 	const status = classification === "spam" ? "spam" : "received";
 	if (previous?.classification === classification) {
 		await db.update(messages).set({ status, folderId: null }).where(eq(messages.id, messageId));
+		// picanteverde fork: the same classification again still moves the message, so it is
+		// audited like the first time (QA on #18). Training is not repeated.
+		await createAuditLog(env, {
+			actorUserId: user.id,
+			mailboxId: message.mailboxId,
+			messageId,
+			action: "email.spam_feedback",
+			metadata: { classification, repeated: true },
+		});
 		return true;
 	}
 
