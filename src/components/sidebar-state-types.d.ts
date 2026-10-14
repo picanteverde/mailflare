@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 export type SidebarState = {
+	/** picanteverde fork: close the mobile drawer (no-op on desktop). */
+	closeMobile: () => void;
 	minimal: boolean;
 	width: number;
 	userId: string | null;

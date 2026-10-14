@@ -538,10 +538,10 @@ export function ComposeForm({
 	const frameClass =
 		mode === "popup"
 			? minimized
-				? "fixed bottom-0 right-8 z-40 flex h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
+				? "fixed bottom-0 right-8 z-40 flex h-9 w-[min(260px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl max-md:bottom-[env(safe-area-inset-bottom)] max-md:left-4 max-md:right-4 max-md:w-auto"
 				: modalMode
-				? "fixed left-1/2 top-1/2 z-50 flex h-[86vh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
-				: "fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100vh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl"
+				? "fixed left-1/2 top-1/2 z-50 flex h-[86vh] w-[min(860px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white shadow-2xl max-md:inset-0 max-md:z-[70] max-md:h-[100dvh] max-md:w-full max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)]"
+				: "fixed bottom-0 right-8 z-40 flex h-[min(520px,calc(100vh-88px))] w-[min(560px,calc(100vw-32px))] flex-col overflow-hidden rounded-t-lg border border-neutral-200 bg-white shadow-2xl max-md:inset-0 max-md:z-[70] max-md:h-[100dvh] max-md:w-full max-md:rounded-none max-md:border-0 max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)]"
 			: "relative flex h-full min-h-[720px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm";
 
 	return (
@@ -584,7 +584,7 @@ export function ComposeForm({
 							<button type="button" onClick={() => { setMinimized((current) => !current); setDraggingFiles(false); }} aria-label={minimized ? t("compose.restore") : t("compose.minimize")} title={minimized ? t("compose.restore") : t("compose.minimize")} className="rounded p-1 hover:bg-neutral-700 dark:hover:bg-neutral-200 hover:text-white">
 								{minimized ? <ChevronUp className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
 							</button>
-							<button type="button" onClick={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }} aria-label={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} title={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} className="rounded p-1 dark:hover:bg-neutral-200 hover:bg-neutral-700 hover:text-white">
+							<button type="button" onClick={() => { if (minimized) setMinimized(false); setModalMode((current) => !current); }} aria-label={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} title={modalMode ? t("compose.restoreFloating") : t("compose.openModal")} className="rounded p-1 dark:hover:bg-neutral-200 hover:bg-neutral-700 hover:text-white max-md:hidden">
 								{modalMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
 							</button>
 							<button type="button" onClick={onClose} aria-label={t("compose.close")} className="rounded p-1 hover:bg-neutral-700 dark:hover:bg-neutral-200 hover:text-white">

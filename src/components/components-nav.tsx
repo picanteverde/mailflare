@@ -26,7 +26,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   const router = useRouter();
   const { openComposer } = useCompose();
   const { selectedMailbox } = useSelectedMailbox();
-  const { minimal } = useSidebar();
+  const { minimal, closeMobile } = useSidebar();
   const [dragOver, setDragOver] = useState(false);
   const [navigationProgress, setNavigationProgress] = useState<number | null>(
     null,
@@ -79,7 +79,11 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
     const composeButton = (
       <button
         type="button"
-        onClick={openComposer}
+        onClick={() => {
+          // picanteverde fork: on phones the drawer would cover the composer.
+          closeMobile();
+          openComposer();
+        }}
         className={cn(!minimal && "ml-3", classes)}
         aria-label={minimal ? link.label : undefined}
         {...dropProps}
