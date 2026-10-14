@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { fetchMessageList, getMessageQueryParams } from "@/hooks/utils";
 import { useCompose } from "@/components/compose/compose-context";
+import { PULL_THRESHOLD, usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, MailPlus, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, MailPlus, RefreshCw, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -306,6 +307,7 @@ export function MessageFolderPage({
 	const mailboxLabelById = useMemo(() => new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.displayName || mailbox.localPart])), [mailboxes]);
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
+	const { scrollerRef: pullScrollerRef, pull, refreshing } = usePullToRefresh(isMobile && !selectedMessageId);
 	const [offset, setOffset] = useState(0);
 	const [internalSelectedMessages, setInternalSelectedMessages] = useState<
 		Array<{ id: string; read: boolean }>
@@ -608,7 +610,13 @@ export function MessageFolderPage({
 				</p>
 			)}
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+			<div ref={pullScrollerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+				{/* picanteverde fork: pull-to-refresh indicator (phones). */}
+				{isMobile && (pull > 0 || refreshing) && (
+					<div aria-hidden="true" className="flex items-end justify-center overflow-hidden text-neutral-500 transition-[height]" style={{ height: refreshing ? 40 : pull }}>
+						<RefreshCw className={clsx("mb-2 h-5 w-5", refreshing && "animate-spin", !refreshing && pull >= PULL_THRESHOLD && "text-blue-600")} style={refreshing ? undefined : { transform: `rotate(${pull * 3}deg)` }} />
+					</div>
+				)}
 				<div role="list" aria-label={title} className="divide-y divide-neutral-100 max-md:pb-24">
 					{messages.map((message) => (
 						<MessageListRow
