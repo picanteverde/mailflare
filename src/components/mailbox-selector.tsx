@@ -118,7 +118,7 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 
 export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const { t } = useLanguage();
-	const { selectedMailbox, setSelectedMailbox, mailboxes, isLoading } = useSelectedMailbox();
+	const { selectedMailbox, setSelectedMailbox, setViewAll, mailboxes, isLoading } = useSelectedMailbox();
 	const pathname = usePathname();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -340,6 +340,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 											unread={mailboxCount?.inboxUnread ?? 0}
 											avatarUrl={mailboxAvatarUrls[mailbox.id]}
 											onSelect={() => {
+												setViewAll(false);
 												setSelectedMailbox(mailbox);
 												setOpen(false);
 												router.push("/inbox");

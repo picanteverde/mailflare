@@ -103,7 +103,7 @@ export function DashboardNav({ className }: { className?: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mailflare:nav:folders-section-open");
-  const { selectedMailbox, listMailboxId, isLoading } = useSelectedMailbox();
+  const { selectedMailbox, listMailboxId, viewAll, isLoading } = useSelectedMailbox();
   const { counts } = useMessageCounts(listMailboxId, !isLoading);
   const [folders, setFolders] = useState<CustomFolder[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
@@ -252,7 +252,8 @@ export function DashboardNav({ className }: { className?: string }) {
         ]}
       />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
-      {!minimal && (
+      {/* picanteverde fork: custom folders belong to one mailbox; hide them in All inboxes. */}
+      {!minimal && !viewAll && (
         <NavSectionHeader label={t("navigation.folders")} open={foldersSectionOpen} onToggle={toggleFoldersSection}>
           {selectedMailbox && (
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
@@ -322,12 +323,12 @@ export function DashboardNav({ className }: { className?: string }) {
         </NavSectionHeader>
       )}
       
-      {!minimal && foldersSectionOpen && folders.length === 0 && (
+      {!minimal && !viewAll && foldersSectionOpen && folders.length === 0 && (
         <div className="px-4 py-1.5 text-xs text-neutral-500">
           {t("navigation.noFolders")}
         </div>
       )}
-      {(minimal || foldersSectionOpen) && <ReorderableList
+      {!viewAll && (minimal || foldersSectionOpen) && <ReorderableList
         storageKey="mailflare:nav:layout:folders"
         enabled={!minimal}
         lists={[{

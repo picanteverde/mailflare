@@ -47,7 +47,7 @@ export function ComposeForm({
 	const { t } = useLanguage();
 	const router = useRouter();
 	const { showNotice } = useCompose();
-	const { selectedMailbox, setSelectedMailbox, mailboxes } = useSelectedMailbox();
+	const { selectedMailbox, setSelectedMailbox, mailboxes, viewAll } = useSelectedMailbox();
 	const [draftId, setDraftId] = useState<string | null>(null);
 	const [agentRevision, setAgentRevision] = useState<number | null>(null);
 	const [agentReview, setAgentReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot } | null>(null);
@@ -594,8 +594,9 @@ export function ComposeForm({
 					)}
 				</div>
 				<div className={cn("flex min-h-0 flex-1 flex-col", minimized && "hidden")}>
-				<div className="border-b border-neutral-100 px-4 py-1 flex flex-row items-center">
-					<Label htmlFor={`${mode}-from`} className="text-sm text-neutral-500">{t("compose.from")}</Label>
+				{/* picanteverde fork: from "All inboxes" the sending mailbox isn't obvious; make From stand out. */}
+				<div className={cn("border-b border-neutral-100 px-4 py-1 flex flex-row items-center", viewAll && senderOptions.length > 1 && "bg-amber-50 ring-1 ring-inset ring-amber-300")}>
+					<Label htmlFor={`${mode}-from`} className={cn("text-sm text-neutral-500", viewAll && senderOptions.length > 1 && "font-semibold text-amber-800")}>{t("compose.from")}</Label>
 					<Select
 						id={`${mode}-from`}
 						value={selectedMailbox && selectedFrom ? `${selectedMailbox.id}|${selectedFrom}` : ""}

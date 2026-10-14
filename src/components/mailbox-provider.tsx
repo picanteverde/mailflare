@@ -184,8 +184,8 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const setSelectedMailbox = useCallback((mb: MailboxOption | null) => {
-		// Picking one mailbox leaves "All inboxes".
-		setViewAll(false);
+		// Compose, drafts and replies set the sending mailbox here too, so this must not leave
+		// "All inboxes"; the mailbox pickers call setViewAll(false) themselves.
 		setSelectedMailboxState((current) => (current?.id === mb?.id ? current : mb));
 		if (mb) {
 			setMailboxes((items) => items.map((item) => (item.id === mb.id && item !== mb ? mb : item)));
@@ -193,7 +193,7 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 		} else {
 			localStorage.removeItem(SELECTED_MAILBOX_STORAGE_KEY);
 		}
-	}, [setViewAll]);
+	}, []);
 
 	// With a single mailbox there is nothing to combine.
 	const effectiveViewAll = viewAll && mailboxes.length > 1;
