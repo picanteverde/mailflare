@@ -16,7 +16,7 @@ export function MobileMailboxList() {
 	const { mailboxes, selectedMailbox, setSelectedMailbox } = useSelectedMailbox();
 	const { counts } = useMessageCounts(null, mobile && mailboxes.length > 1);
 	if (!mobile || mailboxes.length < 2) return null;
-	const unreadById = new Map(counts.mailboxes.map((count) => [count.mailboxId, count.unread]));
+	const unreadById = new Map(counts.mailboxes.map((count) => [count.mailboxId, count.inboxUnread ?? 0]));
 
 	return (
 		<div className="mb-2 border-b border-neutral-200/70 px-3 pb-2">

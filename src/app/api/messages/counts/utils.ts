@@ -29,7 +29,7 @@ export function createEmptyFolderCounts(): MessageCounts["folders"] {
 export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 	const folders = createEmptyFolderCounts();
 	const customFolders: MessageCounts["customFolders"] = {};
-	const mailboxMap = new Map<string, { mailboxId: string; total: number; unread: number; inbox: number }>();
+	const mailboxMap = new Map<string, { mailboxId: string; total: number; unread: number; inbox: number; inboxUnread: number }>();
 
 	for (const row of rows) {
 		const weight = row.total ?? 1;
@@ -58,10 +58,12 @@ export function buildMessageCounts(rows: MessageCountRow[]): MessageCounts {
 			total: 0,
 			unread: 0,
 			inbox: 0,
+			inboxUnread: 0,
 		};
 		mailboxCount.total += weight;
 		if (unread) mailboxCount.unread += weight;
 		if (folder === "inbox") mailboxCount.inbox += weight;
+		if (folder === "inbox" && unread) mailboxCount.inboxUnread += weight;
 		mailboxMap.set(row.mailboxId, mailboxCount);
 	}
 

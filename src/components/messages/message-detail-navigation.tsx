@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -83,12 +83,14 @@ export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavi
 			)}
 			<Tooltip label={t("message.nav.newer")}>
 				<Button type="button" variant="ghost" size="roundedSM" className="max-md:h-11 max-md:w-11" aria-label={t("message.nav.newer")} disabled={!previousId} onClick={() => previousId && router.push(`${context.hrefPrefix}/${previousId}`)}>
-					<ChevronLeft size={18} />
+					<ChevronLeft size={18} className="max-md:hidden" />
+					<ChevronUp size={20} className="md:hidden" />
 				</Button>
 			</Tooltip>
 			<Tooltip label={t("message.nav.older")}>
 				<Button type="button" variant="ghost" size="roundedSM" className="max-md:h-11 max-md:w-11" aria-label={t("message.nav.older")} disabled={!nextId} onClick={() => nextId && router.push(`${context.hrefPrefix}/${nextId}`)}>
-					<ChevronRight size={18} />
+					<ChevronRight size={18} className="max-md:hidden" />
+					<ChevronDown size={20} className="md:hidden" />
 				</Button>
 			</Tooltip>
 		</div>

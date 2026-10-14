@@ -337,7 +337,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 										<MailboxAccountRow
 											key={mailbox.id}
 											mailbox={mailbox}
-											unread={mailboxCount?.unread ?? 0}
+											unread={mailboxCount?.inboxUnread ?? 0}
 											avatarUrl={mailboxAvatarUrls[mailbox.id]}
 											onSelect={() => {
 												setSelectedMailbox(mailbox);
