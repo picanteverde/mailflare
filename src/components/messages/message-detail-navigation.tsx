@@ -77,17 +77,17 @@ export function MessageDetailNavigation({ messageId, unread }: MessageDetailNavi
 	return (
 		<div className="ml-auto flex shrink-0 items-center gap-2 text-neutral-500">
 			{totalUnread > 0 && (
-			<span className="mr-2 whitespace-nowrap text-xs" aria-live="polite">
+			<span className="mr-2 whitespace-nowrap text-xs max-md:hidden" aria-live="polite">
 				{t("message.nav.unreadPosition", { position: unreadOrder, total: totalUnread })}
 			</span>
 			)}
 			<Tooltip label={t("message.nav.newer")}>
-				<Button type="button" variant="ghost" size="roundedSM" aria-label={t("message.nav.newer")} disabled={!previousId} onClick={() => previousId && router.push(`${context.hrefPrefix}/${previousId}`)}>
+				<Button type="button" variant="ghost" size="roundedSM" className="max-md:h-11 max-md:w-11" aria-label={t("message.nav.newer")} disabled={!previousId} onClick={() => previousId && router.push(`${context.hrefPrefix}/${previousId}`)}>
 					<ChevronLeft size={18} />
 				</Button>
 			</Tooltip>
 			<Tooltip label={t("message.nav.older")}>
-				<Button type="button" variant="ghost" size="roundedSM" aria-label={t("message.nav.older")} disabled={!nextId} onClick={() => nextId && router.push(`${context.hrefPrefix}/${nextId}`)}>
+				<Button type="button" variant="ghost" size="roundedSM" className="max-md:h-11 max-md:w-11" aria-label={t("message.nav.older")} disabled={!nextId} onClick={() => nextId && router.push(`${context.hrefPrefix}/${nextId}`)}>
 					<ChevronRight size={18} />
 				</Button>
 			</Tooltip>

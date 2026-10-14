@@ -4,6 +4,7 @@ import {
 	clearMessageCountsCache,
 	clearMessageListCache,
 	fetchMessageList,
+	peekMessageList,
 	getMessageQueryParams,
 } from "./utils";
 
@@ -31,10 +32,18 @@ export function useMessages(
 		let requestNumber = 0;
 		async function loadMessages(force = false, showLoading = false) {
 			const currentRequest = ++requestNumber;
-			if (showLoading) setIsLoading(true);
+			const params = getMessageQueryParams(folder, mailboxId, filters, folderId);
+			if (showLoading) {
+				// picanteverde fork: switching mailbox or folder shows the new list at once: the
+				// cached one if there is one, otherwise an empty list with the loading state,
+				// never the previous mailbox's mail.
+				const cached = peekMessageList(params);
+				setMessages(cached?.messages ?? []);
+				if (cached) setTotal(cached.total ?? 0);
+				setIsLoading(!cached);
+			}
 			try {
-				const params = getMessageQueryParams(folder, mailboxId, filters, folderId);
-				const data = await fetchMessageList(params, force);
+				const data = await fetchMessageList(params, force || (showLoading && !!peekMessageList(params)));
 				if (!cancelled && currentRequest === requestNumber) {
 					setMessages(data.messages ?? []);
 					setTotal(data.total ?? 0);

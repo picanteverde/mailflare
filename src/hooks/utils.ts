@@ -163,6 +163,11 @@ export async function fetchMessageCounts(mailboxId?: string | null, force = fals
 	return request;
 }
 
+/** picanteverde fork: a cached list for these params, if any, without fetching. */
+export function peekMessageList(params: URLSearchParams): MessageListResponse | undefined {
+	return messageListCache.get(params.toString());
+}
+
 export async function fetchMessageList(params: URLSearchParams, force = false): Promise<MessageListResponse> {
 	const key = params.toString();
 	if (!force && messageListCache.has(key)) return messageListCache.get(key) ?? {};

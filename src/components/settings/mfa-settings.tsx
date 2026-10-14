@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import type { MfaStatusResponse } from "./types";
 import type { MfaDialogStep } from "./mfa-settings-types";
 import { beginMfaEnrollment, confirmMfaEnrollment, disableMfa, loadMfaStatus, regenerateRecoveryCodes } from "./utils";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 /**
  * Settings > Account > Security card for TOTP. Enrolment is a three-step
@@ -110,6 +111,9 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 	const [code, setCode] = useState("");
 	const [qrSvg, setQrSvg] = useState("");
 	const [secret, setSecret] = useState("");
+	const [otpauthUrl, setOtpauthUrl] = useState("");
+	const [keyCopied, setKeyCopied] = useState(false);
+	const isMobile = useIsMobile();
 	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -120,6 +124,8 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 		setCode("");
 		setQrSvg("");
 		setSecret("");
+		setOtpauthUrl("");
+		setKeyCopied(false);
 		setRecoveryCodes([]);
 		setError(null);
 	}
@@ -132,6 +138,7 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 			const enrollment = await beginMfaEnrollment(password);
 			setQrSvg(enrollment.qrSvg);
 			setSecret(enrollment.secret);
+			setOtpauthUrl(enrollment.otpauthUrl);
 			setStep("scan");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("mfa.startFailed"));
@@ -184,10 +191,19 @@ function EnrollDialog({ open, onOpenChange, onDone }: { open: boolean; onOpenCha
 							<DialogTitle>{t("mfa.scanTitle")}</DialogTitle>
 							<DialogDescription>{t("mfa.scanDescription")}</DialogDescription>
 						</DialogHeader>
-						<div role="img" aria-label={t("mfa.scanTitle")} className="mx-auto w-48 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-						<details className="text-xs text-neutral-500">
+						{/* picanteverde fork: a phone can't scan its own screen. There the code is a link
+						    that opens the authenticator app (otpauth://), and the key is shown with Copy. */}
+						{isMobile && otpauthUrl ? (
+							<a href={otpauthUrl} aria-label={t("mfa.scanTitle")} className="mx-auto block w-40 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+						) : (
+							<div role="img" aria-label={t("mfa.scanTitle")} className="mx-auto w-48 rounded-xl border border-neutral-200 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+						)}
+						<details className="text-xs text-neutral-500" open={isMobile || undefined}>
 							<summary className="cursor-pointer">{t("mfa.cantScan")}</summary>
 							<code className="mt-2 block break-all rounded-md bg-neutral-50 p-2 font-mono text-neutral-800">{secret}</code>
+							<Button type="button" variant="outline" className="mt-2 h-11 w-full" onClick={() => { void navigator.clipboard?.writeText(secret).then(() => setKeyCopied(true), () => undefined); }}>
+								{keyCopied ? t("common.copied") : t("common.copy")}
+							</Button>
 						</details>
 						<div className="space-y-2">
 							<Label htmlFor="mfa-code">{t("mfa.sixDigitCode")}</Label>

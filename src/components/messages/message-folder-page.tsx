@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { fetchMessageList, getMessageQueryParams } from "@/hooks/utils";
+import { useCompose } from "@/components/compose/compose-context";
 import type { MouseEvent } from "react";
-import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, Trash2 } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, MailPlus, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -145,6 +147,8 @@ function MessageListRow({
 					<span className="flex items-baseline justify-between gap-3">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{unread && <span className="sr-only">{t("list.unread")} </span>}
+							{/* picanteverde fork: bold alone is easy to miss on a phone; unread rows get a dot. */}
+							{unread && <span aria-hidden="true" className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-600 align-middle" />}
 							{party}
 
 							{(message.threadCount ?? 1) > 1 && (
@@ -295,7 +299,8 @@ export function MessageFolderPage({
 }: MessageFolderPageProps) {
 	const { t } = useLanguage();
 	const title = config.titleKey ? t(config.titleKey) : config.title;
-	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
+	const { selectedMailbox, mailboxes, isLoading: mailboxesLoading } = useSelectedMailbox();
+	const { openComposer } = useCompose();
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
 	const [offset, setOffset] = useState(0);
@@ -316,6 +321,20 @@ export function MessageFolderPage({
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
 	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
+	// picanteverde fork: once this inbox has loaded, warm the first page of the account's other
+	// inboxes so switching mailbox (from the account menu on phones) shows mail at once.
+	useEffect(() => {
+		if (mailboxesLoading || isLoading || config.folder !== "inbox" || config.folderId || offset || query || unreadOnly) return;
+		const others = mailboxes.filter((mailbox) => mailbox.id !== selectedMailbox?.id).slice(0, 6);
+		if (others.length === 0) return;
+		const timer = window.setTimeout(() => {
+			for (const mailbox of others) {
+				const params = getMessageQueryParams("inbox", mailbox.id, { query, limit: pageSize, offset: 0, read: "all", group: grouped ? "thread" : undefined });
+				void fetchMessageList(params).catch(() => undefined);
+			}
+		}, 600);
+		return () => window.clearTimeout(timer);
+	}, [mailboxesLoading, isLoading, config.folder, config.folderId, offset, query, unreadOnly, mailboxes, selectedMailbox?.id, pageSize, grouped]);
 	usePageLoading(mailboxesLoading || isLoading);
 	const headerIcons = config.headerIcons ?? [];
 	const hasActiveFilters = !!query.trim();
@@ -504,7 +523,13 @@ export function MessageFolderPage({
 						/>
 					) : (
 						(compact || isMobile) && (
-							<p aria-hidden="true" className="truncate font-semibold text-neutral-900 pl-1">{title}</p>
+							<p aria-hidden="true" className="min-w-0 truncate pl-1">
+								<span className="font-semibold text-neutral-900">{title}</span>
+								{/* picanteverde fork: on phones, say which mailbox this is (several can be granted). */}
+								{isMobile && mailboxes.length > 1 && selectedMailbox && (
+									<span className="ml-1.5 text-sm font-normal text-neutral-500">{selectedMailbox.displayName || `${selectedMailbox.localPart}@${selectedMailbox.hostname}`}</span>
+								)}
+							</p>
 						)
 					)}
 				</div>
@@ -580,7 +605,7 @@ export function MessageFolderPage({
 			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
-				<div role="list" aria-label={title} className="divide-y divide-neutral-100">
+				<div role="list" aria-label={title} className="divide-y divide-neutral-100 max-md:pb-24">
 					{messages.map((message) => (
 						<MessageListRow
 							key={message.id}
@@ -608,6 +633,17 @@ export function MessageFolderPage({
 					</p>
 				)}
 			</div>
+			{/* picanteverde fork: on phones, Compose is one tap from the list (not inside the drawer). */}
+			{isMobile && !selectedMessageId && selectedIds.length === 0 && (
+				<button
+					type="button"
+					onClick={openComposer}
+					className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-30 flex h-14 items-center gap-2 rounded-2xl bg-blue-600 px-5 font-medium text-white shadow-lg active:bg-blue-700"
+				>
+					<MailPlus className="h-5 w-5" aria-hidden="true" />
+					{t("navigation.compose")}
+				</button>
+			)}
 		</div>
 	);
 }

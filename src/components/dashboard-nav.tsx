@@ -41,6 +41,7 @@ import {
 import type { FolderColor } from "@/lib/folders/types";
 import { cn } from "@/lib/utils";
 import { NavItem } from "./components-nav";
+import { MobileMailboxList } from "./mobile-mailbox-list";
 import type { NavLink } from "./components-nav-types";
 import type { CustomFolder } from "./dashboard-nav-types";
 import {
@@ -235,6 +236,7 @@ export function DashboardNav({ className }: { className?: string }) {
   return (
     <SidebarScaffold className={className} header={<SidebarHeader href="/inbox" />} footer={<SidebarFooter />}>
       {composeLink && <NavItem labelClassName="font-medium" link={composeLink} />}
+      <MobileMailboxList />
       {minimal && <hr className="mx-6 my-2 border-neutral-200/70" />}
       <ReorderableList
         storageKey="mailflare:nav:layout"
