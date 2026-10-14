@@ -17,6 +17,7 @@ test("every user-facing password field has the show/hide toggle", () => {
 	const input = read("src/components/ui/password-input.tsx");
 	assert.match(input, /type=\{visible \? "text" : "password"\}/);
 	assert.match(input, /t\("auth\.hidePassword"\) : t\("auth\.showPassword"\)/);
+	assert.match(input, /type=\{visible \? "text" : "password"\} autoCapitalize="none" autoCorrect="off" spellCheck=\{false\}/, "no autocapitalize/autocorrect when shown");
 });
 
 test("2FA-off shows the required banner; recovery codes can be shared", () => {

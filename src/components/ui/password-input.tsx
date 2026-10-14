@@ -16,7 +16,8 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, Omit<React.Compo
 		const [visible, setVisible] = React.useState(false);
 		return (
 			<div className="relative">
-				<Input ref={ref} type={visible ? "text" : "password"} className={cn("pr-11", className)} {...props} />
+				{/* Once visible it is type="text": stop mobile keyboards capitalising/autocorrecting the password. */}
+				<Input ref={ref} type={visible ? "text" : "password"} autoCapitalize="none" autoCorrect="off" spellCheck={false} className={cn("pr-11", className)} {...props} />
 				<button
 					type="button"
 					onClick={() => setVisible((value) => !value)}
