@@ -27,6 +27,7 @@ export function usePullToRefresh(enabled: boolean) {
 		if (!enabled || !scroller) return;
 		let doneTimer: number | null = null;
 		let maxTimer: number | null = null;
+		let pendingFinish: (() => void) | null = null;
 
 		const controller = createPullController({
 			scrollTop: () => scroller.scrollTop,
@@ -34,11 +35,14 @@ export function usePullToRefresh(enabled: boolean) {
 			onRefresh: () => {
 				const startedAt = Date.now();
 				setRefreshing(true);
+				if (pendingFinish) window.removeEventListener(MESSAGES_REFRESHED_EVENT, pendingFinish);
 				const finish = () => {
 					window.removeEventListener(MESSAGES_REFRESHED_EVENT, finish);
+					pendingFinish = null;
 					if (maxTimer) window.clearTimeout(maxTimer);
 					doneTimer = window.setTimeout(() => setRefreshing(false), Math.max(0, MIN_SPIN_MS - (Date.now() - startedAt)));
 				};
+				pendingFinish = finish;
 				window.addEventListener(MESSAGES_REFRESHED_EVENT, finish);
 				maxTimer = window.setTimeout(finish, MAX_SPIN_MS);
 				clearMessageListCache();
@@ -60,6 +64,8 @@ export function usePullToRefresh(enabled: boolean) {
 			scroller.removeEventListener("touchcancel", onEnd);
 			if (doneTimer) window.clearTimeout(doneTimer);
 			if (maxTimer) window.clearTimeout(maxTimer);
+			// QA: a refresh still in flight must not leave its listener behind after unmount.
+			if (pendingFinish) window.removeEventListener(MESSAGES_REFRESHED_EVENT, pendingFinish);
 		};
 	}, [enabled]);
 
