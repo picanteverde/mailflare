@@ -87,6 +87,8 @@ export async function POST(request: Request) {
 	if (allowedMessageIds.length === 0) {
 		return NextResponse.json({ error: "No accessible messages" }, { status: 404 });
 	}
+	// picanteverde fork: audit rows carry the mailbox, so per-mailbox views see bulk actions (QA on #18).
+	const mailboxIdOf = new Map(selectedMessages.map((message) => [message.id, message.mailboxId]));
 	if (payload.action === "delete") {
 		// Only mail already in Trash or Spam can be destroyed; anything else is skipped.
 		const deletable = selectedMessages.filter(
@@ -108,7 +110,7 @@ export async function POST(request: Request) {
 		// messages above are already logged as email.spam_feedback).
 		await Promise.all(
 			normalMessageIds.map((messageId) =>
-				createAuditLog(env, { actorUserId: user.id, messageId, action: "email.move", metadata: { bulkAction: payload.action } }),
+				createAuditLog(env, { actorUserId: user.id, mailboxId: mailboxIdOf.get(messageId) ?? null, messageId, action: "email.move", metadata: { bulkAction: payload.action } }),
 			),
 		);
 		return NextResponse.json({ ok: true });
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
 		allowedMessageIds.map((messageId) =>
 			createAuditLog(env, {
 				actorUserId: user.id,
+				mailboxId: mailboxIdOf.get(messageId) ?? null,
 				messageId,
 				// picanteverde fork: moves were logged as email.delete; real deletes return earlier.
 				action: payload.action === "read" || payload.action === "unread" ? "email.read" : "email.move",
