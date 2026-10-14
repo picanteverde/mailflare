@@ -16,10 +16,10 @@ import { useConversationView } from "./use-conversation-view";
 const NavigationContext = createContext<MessageDetailNavigationContextValue | null>(null);
 
 export function MessageDetailNavigationProvider({ children, config }: MessageDetailNavigationProviderProps) {
-	const { selectedMailbox, isLoading: mailboxesLoading } = useSelectedMailbox();
+	const { listMailboxId, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const mailboxId = selectedMailbox?.id;
+	const mailboxId = listMailboxId ?? undefined;
 	const key = `${config.folder}:${config.folderId ?? ""}:${mailboxId ?? "all"}:${grouped}`;
 	const [snapshot, setSnapshot] = useState<MessageDetailNavigationSnapshot>({ key: "", entries: [] });
 	const [openedUnread, setOpenedUnread] = useState<OpenedUnreadMessages>({ key: "", ids: new Set() });

@@ -1,6 +1,7 @@
 {
 	"navigation.compose": "Scrivi",
 	"navigation.inbox": "In arrivo",
+	"navigation.allInboxes": "Tutta la posta in arrivo",
 	"navigation.starred": "Speciali",
 	"navigation.snoozed": "Posticipate",
 	"navigation.sent": "Inviate",

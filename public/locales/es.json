@@ -1,6 +1,7 @@
 {
 	"navigation.compose": "Redactar",
 	"navigation.inbox": "Recibidos",
+	"navigation.allInboxes": "Todas las bandejas de entrada",
 	"navigation.starred": "Destacados",
 	"navigation.snoozed": "Pospuestos",
 	"navigation.sent": "Enviados",

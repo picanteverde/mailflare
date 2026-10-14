@@ -61,6 +61,7 @@ function MessageListRow({
 	onSelectedChange,
 	onMessageAction,
 	dragMessageIds,
+	mailboxLabel,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -150,6 +151,7 @@ function MessageListRow({
 							{/* picanteverde fork: bold alone is easy to miss on a phone; unread rows get a dot. */}
 							{unread && <span aria-hidden="true" className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-600 align-middle" />}
 							{party}
+							{mailboxLabel && <span className="ml-1.5 rounded bg-neutral-100 px-1.5 py-0.5 align-middle text-[11px] font-normal text-neutral-600">{mailboxLabel}</span>}
 
 							{(message.threadCount ?? 1) > 1 && (
 								<span className="ml-2 text-xs font-normal text-neutral-500">{message.threadCount}</span>
@@ -299,8 +301,9 @@ export function MessageFolderPage({
 }: MessageFolderPageProps) {
 	const { t } = useLanguage();
 	const title = config.titleKey ? t(config.titleKey) : config.title;
-	const { selectedMailbox, mailboxes, isLoading: mailboxesLoading } = useSelectedMailbox();
+	const { selectedMailbox, mailboxes, listMailboxId, viewAll, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const { openComposer } = useCompose();
+	const mailboxLabelById = useMemo(() => new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.displayName || mailbox.localPart])), [mailboxes]);
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
 	const [offset, setOffset] = useState(0);
@@ -313,19 +316,19 @@ export function MessageFolderPage({
 	const [unreadOnly, setUnreadOnly] = useState(false);
 	const [conversationView] = useConversationView();
 	const grouped = conversationView && config.folder !== "drafts";
-	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, selectedMailbox?.id, {
+	const { messages, isLoading, total, limit, updateMessages } = useMessages(config.folder, listMailboxId, {
 		query,
 		limit: pageSize,
 		offset,
 		read: unreadOnly ? "unread" : "all",
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
-	const { counts } = useMessageCounts(selectedMailbox?.id, !mailboxesLoading);
+	const { counts } = useMessageCounts(listMailboxId, !mailboxesLoading);
 	// picanteverde fork: once this inbox has loaded, warm the first page of the account's other
 	// inboxes so switching mailbox (from the account menu on phones) shows mail at once.
 	useEffect(() => {
 		if (mailboxesLoading || isLoading || config.folder !== "inbox" || config.folderId || offset || query || unreadOnly) return;
-		const others = mailboxes.filter((mailbox) => mailbox.id !== selectedMailbox?.id).slice(0, 6);
+		const others = viewAll ? [] : mailboxes.filter((mailbox) => mailbox.id !== selectedMailbox?.id).slice(0, 6);
 		if (others.length === 0) return;
 		const timer = window.setTimeout(() => {
 			for (const mailbox of others) {
@@ -334,7 +337,7 @@ export function MessageFolderPage({
 			}
 		}, 600);
 		return () => window.clearTimeout(timer);
-	}, [mailboxesLoading, isLoading, config.folder, config.folderId, offset, query, unreadOnly, mailboxes, selectedMailbox?.id, pageSize, grouped]);
+	}, [mailboxesLoading, isLoading, config.folder, config.folderId, offset, query, unreadOnly, mailboxes, selectedMailbox?.id, viewAll, pageSize, grouped]);
 	usePageLoading(mailboxesLoading || isLoading);
 	const headerIcons = config.headerIcons ?? [];
 	const hasActiveFilters = !!query.trim();
@@ -364,7 +367,7 @@ export function MessageFolderPage({
 	useEffect(() => {
 		setOffset(0);
 		setSelectedMessages([]);
-	}, [query, selectedMailbox?.id, config.folder, config.folderId, unreadOnly, grouped]);
+	}, [query, listMailboxId, config.folder, config.folderId, unreadOnly, grouped]);
 
 	useEffect(() => {
 		setSelectedMessages([]);
@@ -526,8 +529,8 @@ export function MessageFolderPage({
 							<p aria-hidden="true" className="min-w-0 truncate pl-1">
 								<span className="font-semibold text-neutral-900">{title}</span>
 								{/* picanteverde fork: on phones, say which mailbox this is (several can be granted). */}
-								{isMobile && mailboxes.length > 1 && selectedMailbox && (
-									<span className="ml-1.5 text-sm font-normal text-neutral-500">{selectedMailbox.displayName || `${selectedMailbox.localPart}@${selectedMailbox.hostname}`}</span>
+								{isMobile && mailboxes.length > 1 && (viewAll || selectedMailbox) && (
+									<span className="ml-1.5 text-sm font-normal text-neutral-500">{viewAll ? t("navigation.allInboxes") : selectedMailbox!.displayName || `${selectedMailbox!.localPart}@${selectedMailbox!.hostname}`}</span>
 								)}
 							</p>
 						)
@@ -614,6 +617,7 @@ export function MessageFolderPage({
 							selected={selectedIds.includes(message.id)}
 							active={message.id === selectedMessageId}
 							compact={compact || isMobile}
+							mailboxLabel={viewAll ? mailboxLabelById.get(message.mailboxId ?? "") ?? null : null}
 							currentAccountName={currentAccountName}
 							onSelectedChange={updateSelectedMessage}
 							onMessageAction={(messageId, action) => {

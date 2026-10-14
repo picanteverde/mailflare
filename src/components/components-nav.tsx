@@ -25,7 +25,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { openComposer } = useCompose();
-  const { selectedMailbox } = useSelectedMailbox();
+  const { listMailboxId } = useSelectedMailbox();
   const { minimal, closeMobile } = useSidebar();
   const [dragOver, setDragOver] = useState(false);
   const [navigationProgress, setNavigationProgress] = useState<number | null>(
@@ -129,7 +129,7 @@ export function NavItem({ link, iconClassName, labelClassName, wrap }: Props) {
     try {
       router.prefetch(link.href!);
       await Promise.all([
-        preloadMailboxPage(link.href!, selectedMailbox?.id),
+        preloadMailboxPage(link.href!, listMailboxId ?? undefined),
         waitForNavigationProgress(),
       ]);
       setNavigationProgress(100);

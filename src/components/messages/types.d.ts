@@ -20,6 +20,8 @@ export type MessageFolderConfig = {
 };
 
 export type MessageListRowProps = {
+	/** picanteverde fork: in "All inboxes", which mailbox the message belongs to. */
+	mailboxLabel?: string | null;
 	message: Message;
 	config: MessageFolderConfig;
 	selected: boolean;
