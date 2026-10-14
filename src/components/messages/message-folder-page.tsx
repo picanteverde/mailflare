@@ -323,6 +323,9 @@ export function MessageFolderPage({
 		try {
 			// "unarchive" restores exactly: snoozed mail goes back to Snoozed, not the Inbox.
 			await runBulkMessageAction(ids, "unarchive", false);
+		} catch {
+			// e.g. the mail was moved again before Undo (the API answers 404): say so (QA on #16).
+			setActionError(t("actions.error.update"));
 		} finally {
 			window.dispatchEvent(new Event("mailflare:messages-changed"));
 		}
