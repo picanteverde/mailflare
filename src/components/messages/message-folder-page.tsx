@@ -307,7 +307,7 @@ export function MessageFolderPage({
 	const mailboxLabelById = useMemo(() => new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.displayName || mailbox.localPart])), [mailboxes]);
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
-	const { ref: pullRef, pull, refreshing } = usePullToRefresh(isMobile && !selectedMessageId);
+	const { scrollerRef: pullScrollerRef, pull, refreshing } = usePullToRefresh(isMobile && !selectedMessageId);
 	const [offset, setOffset] = useState(0);
 	const [internalSelectedMessages, setInternalSelectedMessages] = useState<
 		Array<{ id: string; read: boolean }>
@@ -505,7 +505,7 @@ export function MessageFolderPage({
 	}
 
 	return (
-		<div ref={pullRef} className="flex h-full min-h-0 flex-col">
+		<div className="flex h-full min-h-0 flex-col">
 			<div className={`flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 ${compact ? "px-4" : "px-4.5 md:px-6"}`}>
 				{selectedMessageId ? <h2 className="sr-only">{title}</h2> : <h1 className="sr-only">{title}</h1>}
 				<div className="flex items-center gap-3 w-full">
@@ -610,7 +610,7 @@ export function MessageFolderPage({
 				</p>
 			)}
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
+			<div ref={pullScrollerRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-gutter-stable">
 				{/* picanteverde fork: pull-to-refresh indicator (phones). */}
 				{isMobile && (pull > 0 || refreshing) && (
 					<div aria-hidden="true" className="flex items-end justify-center overflow-hidden text-neutral-500 transition-[height]" style={{ height: refreshing ? 40 : pull }}>

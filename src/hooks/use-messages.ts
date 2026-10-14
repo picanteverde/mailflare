@@ -52,6 +52,8 @@ export function useMessages(
 				}
 			} finally {
 				if (!cancelled && currentRequest === requestNumber) setIsLoading(false);
+				// picanteverde fork: lets pull-to-refresh stop its spinner when the reload is done.
+				if (force && !cancelled) window.dispatchEvent(new Event("mailflare:messages-refreshed"));
 			}
 		}
 

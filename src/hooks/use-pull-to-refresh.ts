@@ -2,77 +2,66 @@
 
 import { useEffect, useRef, useState } from "react";
 import { clearMessageCountsCache, clearMessageListCache } from "./utils";
+import { createPullController } from "./pull-to-refresh-controller";
 
-/** Pull distance (px, after damping) that triggers a refresh. */
-export const PULL_THRESHOLD = 64;
-const MAX_PULL = 96;
+export { PULL_THRESHOLD } from "./pull-to-refresh-controller";
 
-function scrollParent(node: HTMLElement | null): HTMLElement | null {
-	for (let el = node?.parentElement ?? null; el; el = el.parentElement) {
-		const style = getComputedStyle(el);
-		if (/(auto|scroll)/.test(style.overflowY)) return el;
-	}
-	return null;
-}
+/** Fired by useMessages when a forced list reload has finished. */
+export const MESSAGES_REFRESHED_EVENT = "mailflare:messages-refreshed";
+const MIN_SPIN_MS = 700;
+const MAX_SPIN_MS = 10_000;
 
 /**
- * picanteverde fork: pull-to-refresh for the phone list. The Home Screen app has no reload
- * button. Pulling down from the top past PULL_THRESHOLD clears the list/count caches and
- * fires the same "messages changed" refresh the realtime socket uses. Listeners are passive,
- * so native scrolling is never blocked.
+ * picanteverde fork: pull-to-refresh for the phone list (the Home Screen app has no reload
+ * button). `scrollerRef` must be the list's own scroll container. Listeners are passive, so
+ * native scrolling is never blocked. The spinner stays until the reload has finished (at
+ * least MIN_SPIN_MS, at most MAX_SPIN_MS).
  */
 export function usePullToRefresh(enabled: boolean) {
-	const ref = useRef<HTMLDivElement | null>(null);
+	const scrollerRef = useRef<HTMLDivElement | null>(null);
 	const [pull, setPull] = useState(0);
 	const [refreshing, setRefreshing] = useState(false);
 
 	useEffect(() => {
-		const root = ref.current;
-		if (!enabled || !root) return;
-		const scroller = scrollParent(root);
-		let startY: number | null = null;
-		let distance = 0;
+		const scroller = scrollerRef.current;
+		if (!enabled || !scroller) return;
+		let doneTimer: number | null = null;
+		let maxTimer: number | null = null;
 
-		function onStart(event: TouchEvent) {
-			if (event.touches.length !== 1 || (scroller && scroller.scrollTop > 0)) return;
-			startY = event.touches[0].clientY;
-			distance = 0;
-		}
-		function onMove(event: TouchEvent) {
-			if (startY === null) return;
-			if (scroller && scroller.scrollTop > 0) {
-				startY = null;
-				setPull(0);
-				return;
-			}
-			const delta = event.touches[0].clientY - startY;
-			distance = delta > 0 ? Math.min(MAX_PULL, delta * 0.5) : 0;
-			setPull(distance);
-		}
-		function onEnd() {
-			if (startY === null) return;
-			startY = null;
-			if (distance >= PULL_THRESHOLD) {
+		const controller = createPullController({
+			scrollTop: () => scroller.scrollTop,
+			onPull: setPull,
+			onRefresh: () => {
+				const startedAt = Date.now();
 				setRefreshing(true);
+				const finish = () => {
+					window.removeEventListener(MESSAGES_REFRESHED_EVENT, finish);
+					if (maxTimer) window.clearTimeout(maxTimer);
+					doneTimer = window.setTimeout(() => setRefreshing(false), Math.max(0, MIN_SPIN_MS - (Date.now() - startedAt)));
+				};
+				window.addEventListener(MESSAGES_REFRESHED_EVENT, finish);
+				maxTimer = window.setTimeout(finish, MAX_SPIN_MS);
 				clearMessageListCache();
 				clearMessageCountsCache();
 				window.dispatchEvent(new Event("mailflare:messages-changed"));
-				window.setTimeout(() => setRefreshing(false), 700);
-			}
-			distance = 0;
-			setPull(0);
-		}
-		root.addEventListener("touchstart", onStart, { passive: true });
-		root.addEventListener("touchmove", onMove, { passive: true });
-		root.addEventListener("touchend", onEnd, { passive: true });
-		root.addEventListener("touchcancel", onEnd, { passive: true });
+			},
+		});
+		const onStart = (event: TouchEvent) => controller.start(event.touches[0]?.clientY ?? 0, event.touches.length);
+		const onMove = (event: TouchEvent) => controller.move(event.touches[0]?.clientY ?? 0);
+		const onEnd = () => controller.end();
+		scroller.addEventListener("touchstart", onStart, { passive: true });
+		scroller.addEventListener("touchmove", onMove, { passive: true });
+		scroller.addEventListener("touchend", onEnd, { passive: true });
+		scroller.addEventListener("touchcancel", onEnd, { passive: true });
 		return () => {
-			root.removeEventListener("touchstart", onStart);
-			root.removeEventListener("touchmove", onMove);
-			root.removeEventListener("touchend", onEnd);
-			root.removeEventListener("touchcancel", onEnd);
+			scroller.removeEventListener("touchstart", onStart);
+			scroller.removeEventListener("touchmove", onMove);
+			scroller.removeEventListener("touchend", onEnd);
+			scroller.removeEventListener("touchcancel", onEnd);
+			if (doneTimer) window.clearTimeout(doneTimer);
+			if (maxTimer) window.clearTimeout(maxTimer);
 		};
 	}, [enabled]);
 
-	return { ref, pull, refreshing };
+	return { scrollerRef, pull, refreshing };
 }
