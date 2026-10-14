@@ -2,6 +2,7 @@
 
 import { getUserTimeZone } from "@/lib/time/utils";
 import { clearUserTimeZonePreference } from "@/lib/time/client";
+import { clearAppUnreadBadge } from "@/lib/push/badge-client";
 import type {
 	AuthFetchOptions,
 	AuthSessionChangedDetail,
@@ -35,6 +36,8 @@ export function setClientSessionToken(token: string): void {
 
 export function clearClientSessionToken(): void {
 	localStorage.removeItem(SESSION_STORAGE_KEY);
+	// picanteverde fork: a signed-out or revoked session shows no unread badge.
+	clearAppUnreadBadge();
 	clearUserTimeZonePreference();
 	dispatchAuthSessionChanged(false);
 }
