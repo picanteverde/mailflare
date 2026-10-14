@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "লিঙ্ক যোগ করুন (⌘K)",
 	"editor.insertLink": "লিঙ্ক যোগ করুন",
 	"editor.clearFormatting": "ফরম্যাটিং মুছুন",
+	"editor.formatting": "ফরম্যাটিং",
 	"editor.apply": "প্রয়োগ করুন",
 	"schedule.todayAt": "আজ, {time}",
 	"schedule.tomorrowAt": "আগামীকাল, {time}",

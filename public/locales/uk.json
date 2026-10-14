@@ -235,6 +235,7 @@
 	"editor.insertLinkHint": "Вставити посилання (⌘K)",
 	"editor.insertLink": "Вставити посилання",
 	"editor.clearFormatting": "Очистити форматування",
+	"editor.formatting": "Форматування",
 	"editor.apply": "Застосувати",
 	"schedule.todayAt": "Сьогодні, {time}",
 	"schedule.tomorrowAt": "Завтра, {time}",

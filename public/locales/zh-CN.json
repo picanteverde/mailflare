@@ -228,6 +228,7 @@
 	"editor.insertLinkHint": "插入链接 (⌘K)",
 	"editor.insertLink": "插入链接",
 	"editor.clearFormatting": "清除格式",
+	"editor.formatting": "格式",
 	"editor.apply": "应用",
 	"schedule.todayAt": "今天 {time}",
 	"schedule.tomorrowAt": "明天 {time}",

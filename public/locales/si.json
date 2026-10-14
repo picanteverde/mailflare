@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "සබැඳිය ඇතුළු කරන්න (⌘K)",
 	"editor.insertLink": "සබැඳිය ඇතුළු කරන්න",
 	"editor.clearFormatting": "හැඩතල ගැන්වීම ඉවත් කරන්න",
+	"editor.formatting": "හැඩතල ගැන්වීම",
 	"editor.apply": "යොදන්න",
 	"schedule.todayAt": "අද, {time}",
 	"schedule.tomorrowAt": "හෙට, {time}",

@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Sisip pautan (⌘K)",
 	"editor.insertLink": "Sisip pautan",
 	"editor.clearFormatting": "Kosongkan pemformatan",
+	"editor.formatting": "Pemformatan",
 	"editor.apply": "Guna",
 	"schedule.todayAt": "Hari ini, {time}",
 	"schedule.tomorrowAt": "Esok, {time}",

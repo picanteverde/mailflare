@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Inserir link (⌘K)",
 	"editor.insertLink": "Inserir link",
 	"editor.clearFormatting": "Limpar formatação",
+	"editor.formatting": "Formatação",
 	"editor.apply": "Aplicar",
 	"schedule.todayAt": "Hoje, {time}",
 	"schedule.tomorrowAt": "Amanhã, {time}",

@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "लिंक घाला (⌘K)",
 	"editor.insertLink": "लिंक घाला",
 	"editor.clearFormatting": "फॉरमॅटिंग साफ करा",
+	"editor.formatting": "स्वरूपण",
 	"editor.apply": "लागू करा",
 	"schedule.todayAt": "आज, {time}",
 	"schedule.tomorrowAt": "उद्या, {time}",

@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Link invoegen (⌘K)",
 	"editor.insertLink": "Link invoegen",
 	"editor.clearFormatting": "Opmaak wissen",
+	"editor.formatting": "Opmaak",
 	"editor.apply": "Toepassen",
 	"schedule.todayAt": "Vandaag, {time}",
 	"schedule.tomorrowAt": "Morgen, {time}",

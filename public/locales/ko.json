@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "링크 삽입 (⌘K)",
 	"editor.insertLink": "링크 삽입",
 	"editor.clearFormatting": "서식 지우기",
+	"editor.formatting": "서식",
 	"editor.apply": "적용",
 	"schedule.todayAt": "오늘 {time}",
 	"schedule.tomorrowAt": "내일 {time}",

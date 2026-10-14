@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Saka hanyar haɗi (⌘K)",
 	"editor.insertLink": "Saka hanyar haɗi",
 	"editor.clearFormatting": "Share tsarin rubutu",
+	"editor.formatting": "Tsarawa",
 	"editor.apply": "Aiwatar",
 	"schedule.todayAt": "Yau, {time}",
 	"schedule.tomorrowAt": "Gobe, {time}",

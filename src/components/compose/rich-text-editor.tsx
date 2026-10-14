@@ -16,6 +16,7 @@ import {
 import { useLanguage } from "@/components/language-provider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 import { EmailHtmlRenderer } from "@/components/messages/email-html-renderer";
 import { sanitizeEmailHtml, sanitizeEditorHtml } from "@/lib/email/html";
 import type { RichTextEditorProps, ToolbarCommand } from "./rich-text-editor-types";
@@ -53,6 +54,11 @@ export function RichTextEditor({
 	const [linkOpen, setLinkOpen] = useState(false);
 	const [linkUrl, setLinkUrl] = useState("");
 	const [showQuoted, setShowQuoted] = useState(false);
+	// picanteverde fork: on phones the formatting buttons fight the keyboard for the bottom
+	// row; they fold behind an "Aa" toggle.
+	const isMobile = useIsMobile();
+	const [showFormatting, setShowFormatting] = useState(false);
+	const formattingHidden = isMobile && !showFormatting;
 	const savedRange = useRef<Range | null>(null);
 
 	// Keep the DOM in step with the value without resetting the caret on every keystroke.
@@ -164,7 +170,7 @@ export function RichTextEditor({
 							onClick={() => setShowQuoted((open) => !open)}
 							aria-expanded={showQuoted}
 							aria-label={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
-							className="rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs leading-5 text-neutral-500 hover:bg-neutral-200"
+							className="rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs leading-5 text-neutral-500 hover:bg-neutral-200 max-md:h-8 max-md:px-4"
 							title={showQuoted ? t("editor.hideQuoted") : t("editor.showQuoted")}
 						>
 							•••
@@ -178,6 +184,19 @@ export function RichTextEditor({
 			{footerContent}
 			<div className="relative flex items-center gap-0.5 border-t border-neutral-100 px-4 py-3">
 				{toolbarStart}
+				{isMobile && (
+					<button
+						type="button"
+						aria-label={t("editor.formatting")}
+						aria-expanded={showFormatting}
+						onMouseDown={(event) => event.preventDefault()}
+						onClick={() => setShowFormatting((open) => !open)}
+						className={cn("ml-1 h-9 rounded-md px-2.5 text-sm font-semibold text-neutral-600", showFormatting && "bg-neutral-200 text-neutral-900")}
+					>
+						Aa
+					</button>
+				)}
+				<div className={cn("contents", formattingHidden && "hidden")}>
 				{COMMANDS.map((item) => (
 					<Tooltip key={item.command} label={t(item.labelKey)}>
 						<button
@@ -220,6 +239,7 @@ export function RichTextEditor({
 						<RemoveFormatting className="h-4 w-4" />
 					</button>
 				</Tooltip>
+				</div>
 				{toolbarEnd}
 				{linkOpen && (
 					<form

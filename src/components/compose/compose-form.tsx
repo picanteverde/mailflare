@@ -32,6 +32,7 @@ import {
 import { headerToRecipients, isValidRecipient, recipientsToHeader } from "./recipient-utils";
 import type { ComposeAttachment, ComposeStoredAttachment, ComposeThreading } from "./types";
 import type { ComposeAttachmentPolicy } from "./attachment-policy-types";
+import { useIsMobile } from "@/components/sidebar-mobile-utils";
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
@@ -48,6 +49,7 @@ export function ComposeForm({
 	const router = useRouter();
 	const { showNotice } = useCompose();
 	const { selectedMailbox, setSelectedMailbox, mailboxes, viewAll } = useSelectedMailbox();
+	const isMobile = useIsMobile();
 	const [draftId, setDraftId] = useState<string | null>(null);
 	const [agentRevision, setAgentRevision] = useState<number | null>(null);
 	const [agentReview, setAgentReview] = useState<{ approvalId: string; snapshot: ReviewSnapshot } | null>(null);
@@ -609,7 +611,7 @@ export function ComposeForm({
 					>
 						{senderOptions.length === 0 && <option value="">{t("compose.selectMailboxFirst")}</option>}
 						{senderOptions.map(({ mailbox, address }) => (
-							<option key={`${mailbox.id}|${address}`} value={`${mailbox.id}|${address}`}>{address}</option>
+							<option key={`${mailbox.id}|${address}`} value={`${mailbox.id}|${address}`}>{mailbox.displayName ? `${mailbox.displayName} · ${address}` : address}</option>
 						))}
 					</Select>
 				</div>
@@ -618,18 +620,25 @@ export function ComposeForm({
 					label={t("compose.to")}
 					value={to}
 					onChange={setTo}
-					placeholder={t("compose.toPlaceholder")}
+					// picanteverde fork: the long example address is cut off on phones; the "To" label is enough.
+					placeholder={isMobile ? undefined : t("compose.toPlaceholder")}
 					required
 					autoFocus={!draftIdToLoad}
 					disabled={loadingDraft}
 					trailing={
 						<>
-							{!showCc && (
+							{/* picanteverde fork: on phones one "Cc/Bcc" toggle instead of two buttons squeezing To. */}
+							{isMobile && !showCc && !showBcc && (
+								<button type="button" className="h-9 rounded px-1.5 hover:text-neutral-800" onClick={() => { setShowCc(true); setShowBcc(true); }}>
+									{t("compose.cc")}/{t("compose.bcc")}
+								</button>
+							)}
+							{!isMobile && !showCc && (
 								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowCc(true)}>
 									{t("compose.cc")}
 								</button>
 							)}
-							{!showBcc && (
+							{!isMobile && !showBcc && (
 								<button type="button" className="rounded px-1 hover:text-neutral-800" onClick={() => setShowBcc(true)}>
 									{t("compose.bcc")}
 								</button>

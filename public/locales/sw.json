@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Ingiza kiungo (⌘K)",
 	"editor.insertLink": "Ingiza kiungo",
 	"editor.clearFormatting": "Futa uumbizaji",
+	"editor.formatting": "Uumbizaji",
 	"editor.apply": "Tumia",
 	"schedule.todayAt": "Leo, {time}",
 	"schedule.tomorrowAt": "Kesho, {time}",

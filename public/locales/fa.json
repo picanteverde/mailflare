@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "درج پیوند (⌘K)",
 	"editor.insertLink": "درج پیوند",
 	"editor.clearFormatting": "پاک کردن قالب‌بندی",
+	"editor.formatting": "قالب‌بندی",
 	"editor.apply": "اعمال",
 	"schedule.todayAt": "امروز، {time}",
 	"schedule.tomorrowAt": "فردا، {time}",

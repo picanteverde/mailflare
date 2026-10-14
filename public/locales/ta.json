@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "இணைப்பைச் செருகு (⌘K)",
 	"editor.insertLink": "இணைப்பைச் செருகு",
 	"editor.clearFormatting": "வடிவமைப்பை அழி",
+	"editor.formatting": "வடிவமைப்பு",
 	"editor.apply": "பயன்படுத்து",
 	"schedule.todayAt": "இன்று, {time}",
 	"schedule.tomorrowAt": "நாளை, {time}",

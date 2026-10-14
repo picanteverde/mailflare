@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "లింక్‌ను చొప్పించండి (⌘K)",
 	"editor.insertLink": "లింక్‌ను చొప్పించండి",
 	"editor.clearFormatting": "ఫార్మాటింగ్‌ను తొలగించండి",
+	"editor.formatting": "ఫార్మాటింగ్",
 	"editor.apply": "వర్తింపజేయండి",
 	"schedule.todayAt": "ఈరోజు, {time}",
 	"schedule.tomorrowAt": "రేపు, {time}",

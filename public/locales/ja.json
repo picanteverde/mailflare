@@ -228,6 +228,7 @@
 	"editor.insertLinkHint": "リンクを挿入 (⌘K)",
 	"editor.insertLink": "リンクを挿入",
 	"editor.clearFormatting": "書式をクリア",
+	"editor.formatting": "書式",
 	"editor.apply": "適用",
 	"schedule.todayAt": "今日 {time}",
 	"schedule.tomorrowAt": "明日 {time}",
