@@ -52,6 +52,7 @@ export function MobileMailboxList() {
 						type="button"
 						aria-current={active || undefined}
 						onClick={() => {
+							setViewAll(false);
 							setSelectedMailbox(mailbox);
 							closeMobile();
 							router.push("/inbox");

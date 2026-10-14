@@ -430,7 +430,8 @@ export function MessageFolderPage({
 		});
 	}
 
-	const permanentDeleteFolder = !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
+	// picanteverde fork: emptying a folder is per mailbox and destructive; not offered in All inboxes.
+	const permanentDeleteFolder = !viewAll && !config.folderId && supportsPermanentDelete(config.folder) ? config.folder : null;
 	async function emptyFolder() {
 		if (!permanentDeleteFolder || !selectedMailbox?.id) return;
 		if (!window.confirm(getEmptyFolderConfirmText(permanentDeleteFolder, titleTotal, t))) return;
