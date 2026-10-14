@@ -95,6 +95,8 @@ export type MailboxCount = {
 	total: number;
 	unread: number;
 	inbox: number;
+	/** picanteverde fork: unread inbox mail only, the rule the inbox counter and app badge use. */
+	inboxUnread: number;
 };
 
 export type MessageCounts = {

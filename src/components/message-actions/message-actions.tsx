@@ -408,6 +408,7 @@ export function MessageActions({
 						variant="ghost"
 						size="roundedSM"
 						aria-label={t("common.moreActions")}
+						className="max-md:h-11 max-md:w-11"
 						aria-expanded={moreOpen}
 						disabled={disabled}
 						onClick={() => setMoreOpen((open) => !open)}

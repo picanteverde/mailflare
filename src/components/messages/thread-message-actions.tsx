@@ -142,7 +142,7 @@ export function ThreadMessageActions({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="h-8 w-8 px-0"
+					className="h-8 w-8 px-0 max-md:h-11 max-md:w-11"
 					aria-label={starred ? t("message.removeStar") : t("message.star")}
 					aria-pressed={starred}
 					disabled={pending}
@@ -158,7 +158,7 @@ export function ThreadMessageActions({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="h-8 w-8 px-0"
+					className="h-8 w-8 px-0 max-md:h-11 max-md:w-11"
 					aria-label={t("message.reply")}
 					disabled={pending}
 					onClick={() => void onReply("reply")}
@@ -172,7 +172,7 @@ export function ThreadMessageActions({
 						type="button"
 						variant="ghost"
 						size="sm"
-						className="h-8 w-8 px-0"
+						className="h-8 w-8 px-0 max-md:h-11 max-md:w-11"
 						aria-label={t("common.moreActions")}
 						aria-expanded={moreOpen}
 						disabled={pending}
