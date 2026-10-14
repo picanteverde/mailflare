@@ -486,6 +486,7 @@
 	"mfa.scanTitle": "Scan the code",
 	"mfa.scanDescription": "Open your authenticator app, add an account by scanning this code, then enter the 6-digit code it shows.",
 	"mfa.cantScan": "Can't scan? Enter the key manually",
+	"mfa.openAuthenticator": "Open in authenticator app",
 	"mfa.sixDigitCode": "6-digit code",
 	"mfa.checking": "Checking...",
 	"mfa.verifyAndTurnOn": "Verify and turn on",

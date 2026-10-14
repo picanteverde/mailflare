@@ -474,6 +474,7 @@
 	"mfa.scanTitle": "Pindai kode",
 	"mfa.scanDescription": "Buka aplikasi autentikator Anda, tambahkan akun dengan memindai kode ini, lalu masukkan kode 6 digit yang ditampilkan.",
 	"mfa.cantScan": "Tidak bisa memindai? Masukkan kunci secara manual",
+	"mfa.openAuthenticator": "Buka di aplikasi autentikator",
 	"mfa.sixDigitCode": "Kode 6 digit",
 	"mfa.checking": "Memeriksa...",
 	"mfa.verifyAndTurnOn": "Verifikasi dan aktifkan",

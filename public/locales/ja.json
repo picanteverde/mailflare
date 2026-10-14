@@ -474,6 +474,7 @@
 	"mfa.scanTitle": "コードをスキャン",
 	"mfa.scanDescription": "認証アプリを開き、このコードをスキャンしてアカウントを追加し、表示された 6 桁のコードを入力してください。",
 	"mfa.cantScan": "スキャンできませんか？キーを手動で入力",
+	"mfa.openAuthenticator": "認証アプリで開く",
 	"mfa.sixDigitCode": "6 桁のコード",
 	"mfa.checking": "確認中…",
 	"mfa.verifyAndTurnOn": "確認してオンにする",

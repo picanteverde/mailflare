@@ -482,6 +482,7 @@
 	"mfa.scanTitle": "Zeskanuj kod",
 	"mfa.scanDescription": "Otwórz aplikację uwierzytelniającą, dodaj konto, skanując ten kod, a następnie wpisz wyświetlony 6-cyfrowy kod.",
 	"mfa.cantScan": "Nie możesz zeskanować? Wpisz klucz ręcznie",
+	"mfa.openAuthenticator": "Otwórz w aplikacji uwierzytelniającej",
 	"mfa.sixDigitCode": "Kod 6-cyfrowy",
 	"mfa.checking": "Sprawdzanie...",
 	"mfa.verifyAndTurnOn": "Zweryfikuj i włącz",

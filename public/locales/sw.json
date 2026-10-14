@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Skani msimbo",
 	"mfa.scanDescription": "Fungua programu yako ya uthibitishaji, ongeza akaunti kwa kuskani msimbo huu, kisha weka msimbo wa tarakimu 6 unaoonyeshwa.",
 	"mfa.cantScan": "Huwezi kuskani? Weka ufunguo mwenyewe",
+	"mfa.openAuthenticator": "Fungua kwenye programu ya uthibitishaji",
 	"mfa.sixDigitCode": "Msimbo wa tarakimu 6",
 	"mfa.checking": "Inakagua...",
 	"mfa.verifyAndTurnOn": "Thibitisha na uwashe",

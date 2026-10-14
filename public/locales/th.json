@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "สแกนรหัส",
 	"mfa.scanDescription": "เปิดแอปยืนยันตัวตนของคุณ เพิ่มบัญชีโดยสแกนรหัสนี้ แล้วใส่รหัส 6 หลักที่แสดง",
 	"mfa.cantScan": "สแกนไม่ได้ใช่ไหม ป้อนคีย์ด้วยตนเอง",
+	"mfa.openAuthenticator": "เปิดในแอปยืนยันตัวตน",
 	"mfa.sixDigitCode": "รหัส 6 หลัก",
 	"mfa.checking": "กำลังตรวจสอบ...",
 	"mfa.verifyAndTurnOn": "ยืนยันและเปิด",

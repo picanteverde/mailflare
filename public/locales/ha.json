@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Duba lambar",
 	"mfa.scanDescription": "Buɗe manhajar tabbatarwarka, ƙara asusu ta hanyar duba wannan lamba, sannan ka shigar da lambar lambobi 6 da take nunawa.",
 	"mfa.cantScan": "Ba za ka iya dubawa ba? Shigar da maɓallin da hannu",
+	"mfa.openAuthenticator": "Buɗe a manhajar tantancewa",
 	"mfa.sixDigitCode": "Lambar lambobi 6",
 	"mfa.checking": "Ana dubawa...",
 	"mfa.verifyAndTurnOn": "Tabbatar kuma kunna",

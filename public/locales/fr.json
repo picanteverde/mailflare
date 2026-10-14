@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Scannez le code",
 	"mfa.scanDescription": "Ouvrez votre application d'authentification, ajoutez un compte en scannant ce code, puis saisissez le code à 6 chiffres affiché.",
 	"mfa.cantScan": "Impossible de scanner ? Saisissez la clé manuellement",
+	"mfa.openAuthenticator": "Ouvrir dans l’application d’authentification",
 	"mfa.sixDigitCode": "Code à 6 chiffres",
 	"mfa.checking": "Vérification...",
 	"mfa.verifyAndTurnOn": "Vérifier et activer",

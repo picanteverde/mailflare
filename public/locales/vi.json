@@ -474,6 +474,7 @@
 	"mfa.scanTitle": "Quét mã",
 	"mfa.scanDescription": "Mở ứng dụng xác thực, thêm tài khoản bằng cách quét mã này, rồi nhập mã gồm 6 chữ số hiển thị.",
 	"mfa.cantScan": "Không quét được? Nhập khóa thủ công",
+	"mfa.openAuthenticator": "Mở trong ứng dụng xác thực",
 	"mfa.sixDigitCode": "Mã 6 chữ số",
 	"mfa.checking": "Đang kiểm tra...",
 	"mfa.verifyAndTurnOn": "Xác minh và bật",

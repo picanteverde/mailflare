@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Scan de code",
 	"mfa.scanDescription": "Open je authenticatie-app, voeg een account toe door deze code te scannen en voer dan de getoonde code van 6 cijfers in.",
 	"mfa.cantScan": "Kun je niet scannen? Voer de sleutel handmatig in",
+	"mfa.openAuthenticator": "Openen in authenticator-app",
 	"mfa.sixDigitCode": "Code van 6 cijfers",
 	"mfa.checking": "Controleren...",
 	"mfa.verifyAndTurnOn": "Verifiëren en inschakelen",

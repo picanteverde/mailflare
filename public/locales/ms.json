@@ -479,6 +479,7 @@
 	"mfa.scanTitle": "Imbas kod",
 	"mfa.scanDescription": "Buka apl pengesah anda, tambah akaun dengan mengimbas kod ini, kemudian masukkan kod 6 digit yang dipaparkan.",
 	"mfa.cantScan": "Tidak dapat mengimbas? Masukkan kunci secara manual",
+	"mfa.openAuthenticator": "Buka dalam aplikasi pengesah",
 	"mfa.sixDigitCode": "Kod 6 digit",
 	"mfa.checking": "Menyemak...",
 	"mfa.verifyAndTurnOn": "Sahkan dan hidupkan",

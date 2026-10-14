@@ -474,6 +474,7 @@
 	"mfa.scanTitle": "扫描二维码",
 	"mfa.scanDescription": "打开验证器应用，扫描此二维码添加账户，然后输入应用显示的 6 位验证码。",
 	"mfa.cantScan": "无法扫描？手动输入密钥",
+	"mfa.openAuthenticator": "在身份验证器应用中打开",
 	"mfa.sixDigitCode": "6 位验证码",
 	"mfa.checking": "正在检查…",
 	"mfa.verifyAndTurnOn": "验证并开启",

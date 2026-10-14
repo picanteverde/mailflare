@@ -499,6 +499,7 @@
 	"mfa.scanTitle": "امسح الرمز",
 	"mfa.scanDescription": "افتح تطبيق المصادقة، وأضف حسابًا بمسح هذا الرمز، ثم أدخل الرمز المكوّن من 6 أرقام الذي يعرضه.",
 	"mfa.cantScan": "لا يمكنك المسح؟ أدخل المفتاح يدويًا",
+	"mfa.openAuthenticator": "افتح في تطبيق المصادقة",
 	"mfa.sixDigitCode": "رمز من 6 أرقام",
 	"mfa.checking": "جارٍ التحقق...",
 	"mfa.verifyAndTurnOn": "تحقق وفعّل",
