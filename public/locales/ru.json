@@ -564,6 +564,7 @@
 	"apiKeys.mailboxesLabel": "Почтовые ящики: {list}",
 	"apiKeys.allAccessible": "Все доступные почтовые ящики (существующий ключ)",
 	"common.copy": "Копировать",
+	"common.undo": "Отменить",
 	"common.share": "Поделиться",
 	"common.copyLabel": "Копировать: {label}",
 	"emailClients.defaultName": "Почтовое приложение",

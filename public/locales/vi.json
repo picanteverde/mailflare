@@ -554,6 +554,7 @@
 	"apiKeys.mailboxesLabel": "Hộp thư: {list}",
 	"apiKeys.allAccessible": "Tất cả hộp thư có thể truy cập (khóa hiện có)",
 	"common.copy": "Sao chép",
+	"common.undo": "Hoàn tác",
 	"common.share": "Chia sẻ",
 	"common.copyLabel": "Sao chép {label}",
 	"emailClients.defaultName": "Ứng dụng thư",

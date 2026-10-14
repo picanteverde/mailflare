@@ -579,6 +579,7 @@
 	"apiKeys.mailboxesLabel": "صناديق البريد: {list}",
 	"apiKeys.allAccessible": "كل صناديق البريد المتاحة (مفتاح موجود)",
 	"common.copy": "نسخ",
+	"common.undo": "تراجع",
 	"common.share": "مشاركة",
 	"common.copyLabel": "نسخ {label}",
 	"emailClients.defaultName": "تطبيق البريد",

@@ -554,6 +554,7 @@
 	"apiKeys.mailboxesLabel": "メールボックス：{list}",
 	"apiKeys.allAccessible": "アクセス可能なすべてのメールボックス（既存のキー）",
 	"common.copy": "コピー",
+	"common.undo": "元に戻す",
 	"common.share": "共有",
 	"common.copyLabel": "{label}をコピー",
 	"emailClients.defaultName": "メールアプリ",

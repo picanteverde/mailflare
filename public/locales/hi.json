@@ -559,6 +559,7 @@
 	"apiKeys.mailboxesLabel": "मेलबॉक्स: {list}",
 	"apiKeys.allAccessible": "सभी सुलभ मेलबॉक्स (मौजूदा कुंजी)",
 	"common.copy": "कॉपी करें",
+	"common.undo": "पहले जैसा करें",
 	"common.share": "शेयर करें",
 	"common.copyLabel": "{label} कॉपी करें",
 	"emailClients.defaultName": "मेल ऐप",

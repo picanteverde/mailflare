@@ -554,6 +554,7 @@
 	"apiKeys.mailboxesLabel": "邮箱：{list}",
 	"apiKeys.allAccessible": "所有可访问的邮箱（现有密钥）",
 	"common.copy": "复制",
+	"common.undo": "撤销",
 	"common.share": "分享",
 	"common.copyLabel": "复制{label}",
 	"emailClients.defaultName": "邮件应用",

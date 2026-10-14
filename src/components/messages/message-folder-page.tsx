@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessageList, getMessageQueryParams } from "@/hooks/utils";
 import { useCompose } from "@/components/compose/compose-context";
 import { PULL_THRESHOLD, usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { createInfinitePager } from "./infinite-pager";
 import type { MouseEvent } from "react";
 import { Archive, ChevronLeft, ChevronRight, ListFilter, Mail, MailOpen, MailPlus, RefreshCw, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -63,6 +64,7 @@ function MessageListRow({
 	onMessageAction,
 	dragMessageIds,
 	mailboxLabel,
+	selectionMode = false,
 }: MessageListRowProps) {
 	const { t } = useLanguage();
 	const Icon = config.icon;
@@ -125,8 +127,7 @@ function MessageListRow({
 	if (compact) {
 		const compactRow = (
 			<div
-				role={swipeable ? undefined : "listitem"}
-				className={`group grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-3 transition-colors ${active
+				className={`group grid grid-cols-[20px_minmax(0,1fr)] gap-3 border-l-2 px-4 py-3 transition-colors ${selectionMode ? "" : "max-md:grid-cols-[minmax(0,1fr)]"} ${active
 					? "border-l-blue-600 bg-blue-50"
 					: selected
 						? "border-l-transparent bg-neutral-50"
@@ -142,7 +143,9 @@ function MessageListRow({
 				<Checkbox
 					checked={selected}
 					onChange={(event) => onSelectedChange(message.id, event.target.checked)}
-					className="mt-1 h-4 w-4 rounded border-neutral-300"
+					// picanteverde fork: on phones selection starts with a long-press; the checkbox stays
+					// available to screen readers and keyboards, and shows once anything is selected.
+					className={clsx("mt-1 h-4 w-4 rounded border-neutral-300", !selectionMode && "max-md:sr-only")}
 					aria-label={t("list.selectFrom", { sender: party })}
 				/>
 				<Link href={href} onClick={config.folder === "drafts" ? undefined : onMessageNavigate} aria-current={active ? "true" : undefined} className="min-w-0">
@@ -174,17 +177,17 @@ function MessageListRow({
 				</Link>
 			</div>
 		);
-		if (!swipeable) return compactRow;
 		return (
 			<SwipeableRow
 				role="listitem"
-				startAction={{
+				onLongPress={() => onSelectedChange(message.id, true)}
+				startAction={!swipeable ? null : {
 					label: read ? t("list.markUnread") : t("list.markRead"),
 					icon: read ? Mail : MailOpen,
 					className: "bg-blue-600",
 					onTrigger: () => void runRowAction(read ? "unread" : "read").catch(() => undefined),
 				}}
-				endAction={{
+				endAction={!swipeable ? null : {
 					label: t("common.archive"),
 					icon: Archive,
 					className: "bg-emerald-600",
@@ -304,6 +307,25 @@ export function MessageFolderPage({
 	const title = config.titleKey ? t(config.titleKey) : config.title;
 	const { selectedMailbox, mailboxes, listMailboxId, viewAll, isLoading: mailboxesLoading } = useSelectedMailbox();
 	const { openComposer } = useCompose();
+	const [undoIds, setUndoIds] = useState<string[] | null>(null);
+	useEffect(() => {
+		if (!undoIds) return;
+		const timer = window.setTimeout(() => setUndoIds(null), 5000);
+		return () => window.clearTimeout(timer);
+	}, [undoIds]);
+	function showUndo(ids: string[]) {
+		setUndoIds(ids);
+	}
+	async function undoArchive() {
+		const ids = undoIds;
+		setUndoIds(null);
+		if (!ids?.length) return;
+		try {
+			await runBulkMessageAction(ids, "inbox", false);
+		} finally {
+			window.dispatchEvent(new Event("mailflare:messages-changed"));
+		}
+	}
 	const mailboxLabelById = useMemo(() => new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.displayName || mailbox.localPart])), [mailboxes]);
 	const { query } = useMailSearch();
 	const isMobile = useIsMobile();
@@ -326,6 +348,51 @@ export function MessageFolderPage({
 		group: grouped ? "thread" : undefined,
 	}, !mailboxesLoading, config.folderId);
 	const { counts } = useMessageCounts(listMailboxId, !mailboxesLoading);
+	// picanteverde fork: infinite scroll on phones (QA mobile #32). The first page comes from
+	// useMessages as before; further pages are appended as the end of the list comes into view.
+	const pager = useMemo(() => createInfinitePager(), []);
+	const [morePages, setMorePages] = useState<Message[]>([]);
+	const sentinelRef = useRef<HTMLDivElement | null>(null);
+	const listKey = `${config.folder}|${config.folderId ?? ""}|${listMailboxId ?? "all"}|${query}|${unreadOnly}|${grouped}`;
+	useEffect(() => {
+		pager.reset();
+		setMorePages([]);
+	}, [pager, listKey]);
+	useEffect(() => {
+		// A refreshed first page shifts offsets; start counting again (results are de-duplicated).
+		pager.reset();
+	}, [pager, messages]);
+	const listedMessages = useMemo(() => {
+		if (!isMobile || morePages.length === 0) return messages;
+		const seen = new Set(messages.map((message) => message.id));
+		return [...messages, ...morePages.filter((message) => !seen.has(message.id) && seen.add(message.id))];
+	}, [isMobile, messages, morePages]);
+	const loadState = useRef({ loaded: 0, total: 0, key: listKey });
+	loadState.current = { loaded: listedMessages.length, total, key: listKey };
+	const loadMore = useCallback(async () => {
+		const { loaded, total: count, key } = loadState.current;
+		const nextOffset = pager.next(loaded, count);
+		if (nextOffset === null) return;
+		try {
+			const params = getMessageQueryParams(config.folder, listMailboxId, { query, limit: pageSize, offset: nextOffset, read: unreadOnly ? "unread" : "all", group: grouped ? "thread" : undefined }, config.folderId);
+			const data = await fetchMessageList(params);
+			if (loadState.current.key !== key) return;
+			const received = data.messages ?? [];
+			pager.done(received.length);
+			if (received.length) setMorePages((current) => [...current, ...received]);
+		} catch {
+			pager.failed(nextOffset);
+		}
+	}, [pager, config.folder, config.folderId, listMailboxId, query, pageSize, unreadOnly, grouped]);
+	useEffect(() => {
+		const sentinel = sentinelRef.current;
+		if (!isMobile || !sentinel || typeof IntersectionObserver === "undefined") return;
+		const observer = new IntersectionObserver((entries) => {
+			if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+		}, { root: pullScrollerRef.current, rootMargin: "600px 0px" });
+		observer.observe(sentinel);
+		return () => observer.disconnect();
+	}, [isMobile, loadMore, pullScrollerRef]);
 	// picanteverde fork: once this inbox has loaded, warm the first page of the account's other
 	// inboxes so switching mailbox (from the account menu on phones) shows mail at once.
 	useEffect(() => {
@@ -541,13 +608,15 @@ export function MessageFolderPage({
 				</div>
 				{(selectedIds.length === 0 || compact) && (
 					<div className="flex items-center gap-2 text-neutral-500">
-						<span className="text-xs text-neutral-500 whitespace-nowrap">
+						{/* picanteverde fork: phones scroll through everything (infinite scroll); no paging there. */}
+						<span className="text-xs text-neutral-500 whitespace-nowrap max-md:hidden">
 							{t("list.range", { start: pageRange.start, end: pageRange.end, total: pageRange.total })}
 						</span>
 						<Tooltip label={t("list.previousPage")}>
 							<Button
 								variant="ghost"
 								size="sm"
+								className="max-md:hidden"
 								disabled={offset === 0 || isLoading}
 								onClick={() => setOffset(Math.max(offset - limit, 0))}
 								aria-label={t("list.previousPage")}
@@ -559,6 +628,7 @@ export function MessageFolderPage({
 							<Button
 								variant="ghost"
 								size="sm"
+								className="max-md:hidden"
 								disabled={offset + messages.length >= total || isLoading}
 								onClick={() => setOffset(offset + limit)}
 								aria-label={t("list.nextPage")}
@@ -618,7 +688,7 @@ export function MessageFolderPage({
 					</div>
 				)}
 				<div role="list" aria-label={title} className="divide-y divide-neutral-100 max-md:pb-24">
-					{messages.map((message) => (
+					{listedMessages.map((message) => (
 						<MessageListRow
 							key={message.id}
 							message={message}
@@ -627,11 +697,17 @@ export function MessageFolderPage({
 							active={message.id === selectedMessageId}
 							compact={compact || isMobile}
 							mailboxLabel={viewAll ? mailboxLabelById.get(message.mailboxId ?? "") ?? null : null}
+							selectionMode={selectedIds.length > 0}
 							currentAccountName={currentAccountName}
 							onSelectedChange={updateSelectedMessage}
 							onMessageAction={(messageId, action) => {
 								setActionError(null);
-								return runBulkMessageAction(expandSelectedIds([messageId]), action, action !== "read" && action !== "unread").catch((error) => {
+								const ids = expandSelectedIds([messageId]);
+								return runBulkMessageAction(ids, action, action !== "read" && action !== "unread").then((result) => {
+									// picanteverde fork: archiving from a row (swipe or button) can be undone (QA mobile #34).
+									if (action === "archive") showUndo(ids);
+									return result;
+								}, (error) => {
 									setActionError(t("actions.error.update"));
 									throw error;
 								});
@@ -640,12 +716,21 @@ export function MessageFolderPage({
 						/>
 					))}
 				</div>
+				{isMobile && <div ref={sentinelRef} aria-hidden="true" className="h-px" />}
 				{!isLoading && messages.length === 0 && (
 					<p className="px-6 py-4 text-sm text-neutral-500">
 						{hasActiveFilters ? t("list.noMatch") : config.emptyTextKey ? t(config.emptyTextKey) : config.emptyText}
 					</p>
 				)}
 			</div>
+			{undoIds && (
+				<div role="status" className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 flex items-center justify-between gap-3 rounded-xl bg-neutral-900 px-4 py-2 text-sm text-white shadow-lg md:inset-x-auto md:right-6 md:bottom-6">
+					<span>{t("navigation.archived")}</span>
+					<button type="button" onClick={() => void undoArchive()} className="h-11 rounded-lg px-3 font-semibold text-blue-300 hover:bg-white/10">
+						{t("common.undo")}
+					</button>
+				</div>
+			)}
 			{/* picanteverde fork: on phones, Compose is one tap from the list (not inside the drawer). */}
 			{isMobile && !selectedMessageId && selectedIds.length === 0 && (
 				<button

@@ -559,6 +559,7 @@
 	"apiKeys.mailboxesLabel": "ಮೇಲ್‌ಬಾಕ್ಸ್‌ಗಳು: {list}",
 	"apiKeys.allAccessible": "ಪ್ರವೇಶಿಸಬಹುದಾದ ಎಲ್ಲಾ ಮೇಲ್‌ಬಾಕ್ಸ್‌ಗಳು (ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಕೀ)",
 	"common.copy": "ನಕಲಿಸಿ",
+	"common.undo": "ರದ್ದುಮಾಡು",
 	"common.share": "ಹಂಚಿಕೊಳ್ಳಿ",
 	"common.copyLabel": "{label} ನಕಲಿಸಿ",
 	"emailClients.defaultName": "ಮೇಲ್ ಆ್ಯಪ್",
