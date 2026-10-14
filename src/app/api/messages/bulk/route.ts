@@ -104,6 +104,13 @@ export async function POST(request: Request) {
 		const normalMessageIds = allowedMessageIds.filter((messageId) => !spamMessageIds.includes(messageId));
 		for (const messageId of spamMessageIds) await applySpamFeedback(env, user, messageId, "ham");
 		if (normalMessageIds.length) await db.update(messages).set(values).where(inArray(messages.id, normalMessageIds));
+		// picanteverde fork: moving back to the inbox is audited like every other move (spam
+		// messages above are already logged as email.spam_feedback).
+		await Promise.all(
+			normalMessageIds.map((messageId) =>
+				createAuditLog(env, { actorUserId: user.id, messageId, action: "email.move", metadata: { bulkAction: payload.action } }),
+			),
+		);
 		return NextResponse.json({ ok: true });
 	}
 

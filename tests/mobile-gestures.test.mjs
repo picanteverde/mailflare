@@ -173,3 +173,10 @@ test("Undo reports a failure; bulk moves are audited as email.move, not email.de
 	const route = readFileSync(join(root, "src/app/api/messages/bulk/route.ts"), "utf8");
 	assert.match(route, /payload\.action === "unread" \? "email\.read" : "email\.move"/);
 });
+
+test("moving mail back to the inbox is audited (spam goes through email.spam_feedback)", () => {
+	const route = readFileSync(join(root, "src/app/api/messages/bulk/route.ts"), "utf8");
+	const inbox = route.slice(route.indexOf('if (payload.action === "inbox") {'), route.indexOf('if (payload.action === "inbox") {') + 1200);
+	assert.match(inbox, /normalMessageIds\.map\(\(messageId\) =>\s*\n\s*createAuditLog\(env, \{ actorUserId: user\.id, messageId, action: "email\.move"/);
+	assert.match(readFileSync(join(root, "src/lib/spam/feedback.ts"), "utf8"), /action: "email\.spam_feedback"/);
+});
