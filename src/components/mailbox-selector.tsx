@@ -78,7 +78,7 @@ function AccountAvatar({
 	);
 }
 
-function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAccountRowProps) {
+function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect, current = false }: MailboxAccountRowProps) {
 	const { t } = useLanguage();
 	const name = getMailboxName(mailbox);
 
@@ -86,6 +86,7 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 		<button
 			type="button"
 			onClick={onSelect}
+			aria-current={current || undefined}
 			className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-white"
 		>
 			<AccountAvatar
@@ -112,13 +113,14 @@ function MailboxAccountRow({ mailbox, unread, avatarUrl, onSelect }: MailboxAcco
 					{unread > 99 ? "99+" : unread}
 				</span>
 			)}
+			{current && <Check size={16} className="shrink-0 text-blue-600" aria-hidden="true" />}
 		</button>
 	);
 }
 
 export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const { t } = useLanguage();
-	const { selectedMailbox, setSelectedMailbox, setViewAll, mailboxes, isLoading } = useSelectedMailbox();
+	const { selectedMailbox, setSelectedMailbox, setViewAll, viewAll, mailboxes, isLoading } = useSelectedMailbox();
 	const pathname = usePathname();
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
@@ -216,7 +218,6 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 	const selectedAvatarUrl = selectedMailbox
 		? selectedMailboxAvatarUrl ?? `/api/mailboxes/${selectedMailbox.id}/avatar`
 		: avatarUrl;
-	const otherMailboxes = mailboxes.filter((mailbox) => mailbox.id !== selectedMailbox?.id);
 	const adminActive = isAdminPath(pathname);
 
 	async function logout() {
@@ -320,7 +321,8 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 							<Settings size={18} className="text-neutral-600" />
 							{t("account.settings")}
 						</Link>
-						{otherMailboxes.length > 0 && (
+						{/* picanteverde fork: list every mailbox, the current one checked, like the drawer (QA #13). */}
+						{mailboxes.length > 1 && (
 							<div className="mt-3 border-t border-neutral-100 pt-2">
 								<button
 									type="button"
@@ -331,7 +333,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 									{t("account.inboxes", { count: mailboxes.length })}
 									<ChevronDown size={16} className={`transition-transform ${inboxesOpen ? "rotate-180" : ""}`} />
 								</button>
-								{inboxesOpen && otherMailboxes.map((mailbox) => {
+								{inboxesOpen && mailboxes.map((mailbox) => {
 									const mailboxCount = counts.mailboxes.find((count) => count.mailboxId === mailbox.id);
 									return (
 										<MailboxAccountRow
@@ -339,6 +341,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 											mailbox={mailbox}
 											unread={mailboxCount?.inboxUnread ?? 0}
 											avatarUrl={mailboxAvatarUrls[mailbox.id]}
+											current={!viewAll && mailbox.id === selectedMailbox?.id}
 											onSelect={() => {
 												setViewAll(false);
 												setSelectedMailbox(mailbox);
