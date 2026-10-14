@@ -83,6 +83,8 @@ test("listeners are passive on the list's scroll container; the spinner waits fo
 	assert.match(hook, /MESSAGES_REFRESHED_EVENT/);
 	const cleanup = hook.slice(hook.lastIndexOf("return () => {"));
 	assert.match(cleanup, /if \(pendingFinish\) window\.removeEventListener\(MESSAGES_REFRESHED_EVENT, pendingFinish\);/, "no listener left after unmount");
+	assert.match(hook, /onRefresh: \(\) => \{[\s\S]*?if \(pendingFinish\) return;/, "a second pull while refreshing is ignored");
+	assert.match(hook, /if \(maxTimer\) window\.clearTimeout\(maxTimer\);\s*\n\s*maxTimer = window\.setTimeout\(finish, MAX_SPIN_MS\);/);
 	assert.match(readFileSync(join(root, "src/hooks/use-messages.ts"), "utf8"), /mailflare:messages-refreshed/);
 	assert.match(readFileSync(join(root, "src/components/messages/message-folder-page.tsx"), "utf8"), /<div ref=\{pullScrollerRef\} className="min-h-0 flex-1 overflow-y-auto/);
 });

@@ -33,9 +33,10 @@ export function usePullToRefresh(enabled: boolean) {
 			scrollTop: () => scroller.scrollTop,
 			onPull: setPull,
 			onRefresh: () => {
+				// QA: one refresh at a time; a second pull while one is running is ignored.
+				if (pendingFinish) return;
 				const startedAt = Date.now();
 				setRefreshing(true);
-				if (pendingFinish) window.removeEventListener(MESSAGES_REFRESHED_EVENT, pendingFinish);
 				const finish = () => {
 					window.removeEventListener(MESSAGES_REFRESHED_EVENT, finish);
 					pendingFinish = null;
@@ -44,6 +45,7 @@ export function usePullToRefresh(enabled: boolean) {
 				};
 				pendingFinish = finish;
 				window.addEventListener(MESSAGES_REFRESHED_EVENT, finish);
+				if (maxTimer) window.clearTimeout(maxTimer);
 				maxTimer = window.setTimeout(finish, MAX_SPIN_MS);
 				clearMessageListCache();
 				clearMessageCountsCache();
