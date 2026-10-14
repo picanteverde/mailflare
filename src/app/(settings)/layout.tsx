@@ -48,7 +48,7 @@ export default function DashboardLayout({
                       <LicenseIndicator />
                       <MailboxSelector />
                     </header>
-                    <main id="main-content" tabIndex={-1} className="focus:outline-none page-flush min-h-0 flex-1 overflow-y-auto max-md:rounded-t-3xl max-md:bg-white overscroll-contain scrollbar-gutter-stable">
+                    <main id="main-content" tabIndex={-1} className="focus:outline-none page-flush min-h-0 flex-1 overflow-y-auto max-md:rounded-t-3xl max-md:bg-white max-md:pb-24 overscroll-contain scrollbar-gutter-stable">
                       {children}
                     </main>
                   </div>

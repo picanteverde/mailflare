@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { HeaderSearch } from "@/components/header-search";
@@ -10,7 +11,10 @@ export function MailSearchInput() {
 	const { t } = useLanguage();
 	const { input: query, setQuery } = useMailSearch();
 	const { openCommandPalette, shortcutsEnabled, shortcutsPreferenceLoading } = useShortcuts();
-	const showShortcutHints = shortcutsEnabled && !shortcutsPreferenceLoading;
+	// picanteverde fork: no "press /" hint on touch screens, which have no keyboard shortcuts.
+	const [coarsePointer, setCoarsePointer] = useState(false);
+	useEffect(() => setCoarsePointer(!!window.matchMedia?.("(pointer: coarse)").matches), []);
+	const showShortcutHints = shortcutsEnabled && !shortcutsPreferenceLoading && !coarsePointer;
 
 	return (
 		<HeaderSearch

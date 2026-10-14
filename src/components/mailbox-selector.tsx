@@ -328,7 +328,7 @@ export function MailboxSelector({ initialUser }: MailboxSelectorProps = {}) {
 									aria-expanded={inboxesOpen}
 									className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:bg-[#f2f6fc]"
 								>
-									{t("account.inboxes", { count: otherMailboxes.length })}
+									{t("account.inboxes", { count: mailboxes.length })}
 									<ChevronDown size={16} className={`transition-transform ${inboxesOpen ? "rotate-180" : ""}`} />
 								</button>
 								{inboxesOpen && otherMailboxes.map((mailbox) => {
