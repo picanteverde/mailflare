@@ -147,6 +147,8 @@ function MessageListRow({
 					<span className="flex items-baseline justify-between gap-3">
 						<span className={clsx(unread && "font-semibold",getMessagePartyClassName(rowMessage, config.folder))}>
 							{unread && <span className="sr-only">{t("list.unread")} </span>}
+							{/* picanteverde fork: bold alone is easy to miss on a phone; unread rows get a dot. */}
+							{unread && <span aria-hidden="true" className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-600 align-middle" />}
 							{party}
 
 							{(message.threadCount ?? 1) > 1 && (

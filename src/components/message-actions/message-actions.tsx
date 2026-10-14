@@ -2,7 +2,7 @@
 
 import { createElement, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Ban, BellOff, Clock, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
+import { Archive, Ban, BellOff, ChevronLeft, Clock, FileCode2, Forward, Mail, MailOpen, MoreVertical, Reply, ReplyAll, ShieldAlert, Trash2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { useCompose } from "@/components/compose/compose-context";
 import { MessageSourceDialog } from "@/components/messages/message-source-dialog";
@@ -261,20 +261,23 @@ export function MessageActions({
 
 			{isMobile && (
 				<>
+					{/* picanteverde fork: the Home Screen app has no browser Back. Back sits where iOS
+					    expects it (top-left); Reply/Reply all/Forward live in the bottom bar. */}
 					<Button
 						type="button"
 						variant="ghost"
 						size="roundedSM"
-						aria-label={t("message.reply")}
-						disabled={disabled}
-						onClick={() => handleReply("reply")}
+						aria-label={t("shortcut.backToList")}
+						className="h-11 w-11"
+						onClick={() => router.push(listHref)}
 					>
-						<Reply size={iconSize} />
+						<ChevronLeft size={22} />
 					</Button>
 					<Button
 						variant="ghost"
 						size="roundedSM"
 						aria-label={trashLabel}
+						className="h-11 w-11"
 						disabled={disabled}
 						onClick={onTrashClick}
 					>
@@ -284,11 +287,25 @@ export function MessageActions({
 						variant="ghost"
 						size="roundedSM"
 						aria-label={t("common.reportSpam")}
+						className="h-11 w-11"
 						disabled={disabled || status === "spam" || direction !== "inbound"}
 						onClick={() => runAction("spam")}
 					>
 						<ShieldAlert size={iconSize} />
 					</Button>
+					<div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-neutral-200 bg-white px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+						<Button type="button" variant="ghost" className="h-11 flex-1 gap-2 rounded-xl border border-neutral-200" disabled={disabled} onClick={() => handleReply("reply")}>
+							<Reply size={18} /> {t("message.reply")}
+						</Button>
+						{canReplyAll && (
+							<Button type="button" variant="ghost" className="h-11 flex-1 gap-2 rounded-xl border border-neutral-200" disabled={disabled} onClick={() => handleReply("replyAll")}>
+								<ReplyAll size={18} /> {t("message.replyAll")}
+							</Button>
+						)}
+						<Button type="button" variant="ghost" className="h-11 flex-1 gap-2 rounded-xl border border-neutral-200" disabled={disabled} onClick={() => void handleForward()}>
+							<Forward size={18} /> {t("message.forward")}
+						</Button>
+					</div>
 				</>
 			)}
 			{!isMobile && (

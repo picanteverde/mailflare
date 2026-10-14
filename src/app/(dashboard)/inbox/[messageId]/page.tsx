@@ -210,7 +210,7 @@ export default function MessageDetailPage() {
         expandedAll={threadExpanded}
         onExpandedAllChange={setThreadExpanded}
       />
-      <article className={clsx("px-6 py-4 max-md:px-4", !isAnyPanelVisible && "pl-12 max-md:pl-4")}>
+      <article className={clsx("px-6 py-4 max-md:px-4 max-md:pb-28", !isAnyPanelVisible && "pl-12 max-md:pl-4")}>
         <div className="w-full">
           <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 pb-5 pl-4">
             <div className="flex min-w-0 items-start gap-3">

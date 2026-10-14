@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mail, ShieldCheck } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -17,6 +17,10 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // picanteverde fork: before hydration a tap would do a native POST that reloads the page and
+  // clears both fields with no error; keep Sign in disabled until the handler is attached.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
   const [turnstileReset, setTurnstileReset] = useState(0);
   // Set once the password is accepted for an account with a second factor.
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
@@ -178,7 +182,7 @@ export function LoginClient({ adding = false }: { adding?: boolean }) {
         <Button
           type="submit"
           className="h-11 w-full rounded-full px-6 active:scale-[0.98]"
-          disabled={loading}
+          disabled={loading || !hydrated}
         >
           {loading ? t("auth.signingIn") : t("auth.signIn")}
         </Button>
