@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { useMessageCounts } from "@/hooks/use-message-counts";
 import { useSelectedMailbox } from "./mailbox-provider";
 import { useSidebar } from "./sidebar-state";
+import { useLanguage } from "./language-provider";
+import { Inbox } from "lucide-react";
 
 /**
  * picanteverde fork: on phones the mailbox switcher was buried in the avatar menu. The drawer
@@ -13,15 +15,35 @@ import { useSidebar } from "./sidebar-state";
 export function MobileMailboxList() {
 	const router = useRouter();
 	const { mobile, closeMobile } = useSidebar();
-	const { mailboxes, selectedMailbox, setSelectedMailbox } = useSelectedMailbox();
+	const { t } = useLanguage();
+	const { mailboxes, selectedMailbox, setSelectedMailbox, viewAll, setViewAll } = useSelectedMailbox();
 	const { counts } = useMessageCounts(null, mobile && mailboxes.length > 1);
 	if (!mobile || mailboxes.length < 2) return null;
 	const unreadById = new Map(counts.mailboxes.map((count) => [count.mailboxId, count.inboxUnread ?? 0]));
 
 	return (
 		<div className="mb-2 border-b border-neutral-200/70 px-3 pb-2">
+			<button
+				type="button"
+				aria-current={viewAll || undefined}
+				onClick={() => {
+					setViewAll(true);
+					closeMobile();
+					router.push("/inbox");
+				}}
+				className={cn(
+					"flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left",
+					viewAll ? "bg-blue-100 text-blue-950" : "text-neutral-700 active:bg-neutral-200/60",
+				)}
+			>
+				<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-700">
+					<Inbox className="h-4 w-4" aria-hidden="true" />
+				</span>
+				<span className={cn("min-w-0 flex-1 truncate text-base", viewAll && "font-semibold")}>{t("navigation.allInboxes")}</span>
+				{counts.folders.inbox.unread > 0 && <span className="text-sm font-semibold">{counts.folders.inbox.unread > 99 ? "99+" : counts.folders.inbox.unread}</span>}
+			</button>
 			{mailboxes.map((mailbox) => {
-				const active = mailbox.id === selectedMailbox?.id;
+				const active = !viewAll && mailbox.id === selectedMailbox?.id;
 				const unread = unreadById.get(mailbox.id) ?? 0;
 				const address = `${mailbox.localPart}@${mailbox.hostname}`;
 				return (

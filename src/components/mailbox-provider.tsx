@@ -47,9 +47,18 @@ type MailboxContextValue = {
 	setSelectedMailbox: (mb: MailboxOption | null) => void;
 	mailboxes: MailboxOption[];
 	isLoading: boolean;
+	/**
+	 * picanteverde fork: "All inboxes". Lists and counts span every mailbox the account may
+	 * read; selectedMailbox stays set (compose, settings and folders still need one).
+	 */
+	viewAll: boolean;
+	setViewAll: (value: boolean) => void;
+	/** The mailbox lists and counts are scoped to: null in "All inboxes". */
+	listMailboxId: string | null;
 };
 
 const MailboxContext = createContext<MailboxContextValue | null>(null);
+const VIEW_ALL_STORAGE_KEY = "mailflare:view-all-inboxes";
 
 export function useSelectedMailbox() {
 	const ctx = useContext(MailboxContext);
@@ -156,7 +165,27 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener(PROFILE_AVATAR_CHANGED_EVENT, updatePersonalMailboxAvatars);
 	}, []);
 
+	const [viewAll, setViewAllState] = useState(false);
+	useEffect(() => {
+		try {
+			setViewAllState(localStorage.getItem(VIEW_ALL_STORAGE_KEY) === "1");
+		} catch {
+			// Storage can be unavailable; default to one mailbox.
+		}
+	}, []);
+	const setViewAll = useCallback((value: boolean) => {
+		setViewAllState(value);
+		try {
+			if (value) localStorage.setItem(VIEW_ALL_STORAGE_KEY, "1");
+			else localStorage.removeItem(VIEW_ALL_STORAGE_KEY);
+		} catch {
+			// Not persisted; the choice still applies to this tab.
+		}
+	}, []);
+
 	const setSelectedMailbox = useCallback((mb: MailboxOption | null) => {
+		// Picking one mailbox leaves "All inboxes".
+		setViewAll(false);
 		setSelectedMailboxState((current) => (current?.id === mb?.id ? current : mb));
 		if (mb) {
 			setMailboxes((items) => items.map((item) => (item.id === mb.id && item !== mb ? mb : item)));
@@ -164,10 +193,14 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 		} else {
 			localStorage.removeItem(SELECTED_MAILBOX_STORAGE_KEY);
 		}
-	}, []);
+	}, [setViewAll]);
+
+	// With a single mailbox there is nothing to combine.
+	const effectiveViewAll = viewAll && mailboxes.length > 1;
+	const listMailboxId = effectiveViewAll ? null : selectedMailbox?.id ?? null;
 
 	return (
-		<MailboxContext.Provider value={{ selectedMailbox, setSelectedMailbox, mailboxes, isLoading }}>
+		<MailboxContext.Provider value={{ selectedMailbox, setSelectedMailbox, mailboxes, isLoading, viewAll: effectiveViewAll, setViewAll, listMailboxId }}>
 			{children}
 		</MailboxContext.Provider>
 	);

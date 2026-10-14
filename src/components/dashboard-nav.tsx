@@ -103,8 +103,8 @@ export function DashboardNav({ className }: { className?: string }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [foldersSectionOpen, toggleFoldersSection] = useSectionOpen("mailflare:nav:folders-section-open");
-  const { selectedMailbox, isLoading } = useSelectedMailbox();
-  const { counts } = useMessageCounts(selectedMailbox?.id, !isLoading);
+  const { selectedMailbox, listMailboxId, isLoading } = useSelectedMailbox();
+  const { counts } = useMessageCounts(listMailboxId, !isLoading);
   const [folders, setFolders] = useState<CustomFolder[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderColor, setNewFolderColor] =
