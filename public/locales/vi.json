@@ -228,6 +228,7 @@
 	"editor.insertLinkHint": "Chèn liên kết (⌘K)",
 	"editor.insertLink": "Chèn liên kết",
 	"editor.clearFormatting": "Xóa định dạng",
+	"editor.formatting": "Định dạng",
 	"editor.apply": "Áp dụng",
 	"schedule.todayAt": "Hôm nay, {time}",
 	"schedule.tomorrowAt": "Ngày mai, {time}",

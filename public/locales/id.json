@@ -228,6 +228,7 @@
 	"editor.insertLinkHint": "Sisipkan tautan (⌘K)",
 	"editor.insertLink": "Sisipkan tautan",
 	"editor.clearFormatting": "Hapus pemformatan",
+	"editor.formatting": "Pemformatan",
 	"editor.apply": "Terapkan",
 	"schedule.todayAt": "Hari ini, {time}",
 	"schedule.tomorrowAt": "Besok, {time}",

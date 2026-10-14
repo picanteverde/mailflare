@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "لنک داخل کریں (⌘K)",
 	"editor.insertLink": "لنک داخل کریں",
 	"editor.clearFormatting": "فارمیٹنگ صاف کریں",
+	"editor.formatting": "فارمیٹنگ",
 	"editor.apply": "لاگو کریں",
 	"schedule.todayAt": "آج، {time}",
 	"schedule.tomorrowAt": "کل، {time}",

@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "લિંક દાખલ કરો (⌘K)",
 	"editor.insertLink": "લિંક દાખલ કરો",
 	"editor.clearFormatting": "ફૉર્મેટિંગ સાફ કરો",
+	"editor.formatting": "ફોર્મેટિંગ",
 	"editor.apply": "લાગુ કરો",
 	"schedule.todayAt": "આજે, {time}",
 	"schedule.tomorrowAt": "આવતીકાલે, {time}",

@@ -248,6 +248,7 @@
 	"editor.insertLinkHint": "إدراج رابط (⌘K)",
 	"editor.insertLink": "إدراج رابط",
 	"editor.clearFormatting": "مسح التنسيق",
+	"editor.formatting": "التنسيق",
 	"editor.apply": "تطبيق",
 	"schedule.todayAt": "اليوم، {time}",
 	"schedule.tomorrowAt": "غدًا، {time}",

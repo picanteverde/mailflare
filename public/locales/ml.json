@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "ലിങ്ക് ചേർക്കുക (⌘K)",
 	"editor.insertLink": "ലിങ്ക് ചേർക്കുക",
 	"editor.clearFormatting": "ഫോർമാറ്റിംഗ് മായ്ക്കുക",
+	"editor.formatting": "ഫോർമാറ്റിംഗ്",
 	"editor.apply": "പ്രയോഗിക്കുക",
 	"schedule.todayAt": "ഇന്ന്, {time}",
 	"schedule.tomorrowAt": "നാളെ, {time}",

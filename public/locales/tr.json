@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "Bağlantı ekle (⌘K)",
 	"editor.insertLink": "Bağlantı ekle",
 	"editor.clearFormatting": "Biçimlendirmeyi temizle",
+	"editor.formatting": "Biçimlendirme",
 	"editor.apply": "Uygula",
 	"schedule.todayAt": "Bugün, {time}",
 	"schedule.tomorrowAt": "Yarın, {time}",

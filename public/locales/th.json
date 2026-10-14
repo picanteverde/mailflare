@@ -232,6 +232,7 @@
 	"editor.insertLinkHint": "แทรกลิงก์ (⌘K)",
 	"editor.insertLink": "แทรกลิงก์",
 	"editor.clearFormatting": "ล้างการจัดรูปแบบ",
+	"editor.formatting": "การจัดรูปแบบ",
 	"editor.apply": "นำไปใช้",
 	"schedule.todayAt": "วันนี้ {time}",
 	"schedule.tomorrowAt": "พรุ่งนี้ {time}",
