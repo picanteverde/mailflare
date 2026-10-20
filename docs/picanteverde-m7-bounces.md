@@ -48,9 +48,15 @@ No code and no infrastructure changes yet. QA reviews this before any bounce cod
    (`delivered`/`deferred` not needed in v1). Staging uses its own queue and its own test sending domain.
    Creating them is an infra change: listed record by record for QA before it's done.
 2. **Consumer** in the existing `queue()` handler (`worker.ts:106`), new branch by queue name:
-   - reject (ack + log) events whose `metadata.accountId` isn't ours or whose `source.domain` isn't configured;
+   - reject (ack + log) events whose `metadata.accountId` isn't ours or whose `source.domain` isn't configured.
+     These checks stay even though only our subscription feeds the queue from outside: any Worker in the
+     account with a producer binding could enqueue too, so **no other Worker gets a producer binding to
+     `mailflare-email-events`** (mailflare itself only consumes it);
    - `INSERT … ON CONFLICT(event_id) DO NOTHING` into a new `email_events` table
-     (`event_id` unique, `message_id`, `type`, `recipient_hmac`, `at`, `data`), so duplicates do nothing;
+     (`event_id` unique, `message_id`, `type`, `recipient_hmac`, `at`, `data`), so duplicates do nothing.
+     `data` is the payload **with `recipient` and `subject` removed** (otherwise the HMAC column is pointless);
+   - per `messageId`, store the latest applied `eventTimestamp` and apply events **monotonically**: an event
+     older than the latest applied one is recorded but changes nothing, and a terminal state never moves back;
    - look up the sent message by `providerMessageId`; unknown → keep the row, no webhook;
    - emit webhook `message.bounced` `{ messageId, providerMessageId, recipient, kind: hard|soft, smtpStatus,
      reason }` or `message.complained` `{ messageId, providerMessageId, recipient, kind }`, V2-signed (M4), to
@@ -58,10 +64,16 @@ No code and no infrastructure changes yet. QA reviews this before any bounce cod
    - `ack()` on success, `retry()` on a transient DB error; poison messages go to the DLQ after 3 tries.
 3. **No DSN/ARF parsing** of inbound mail in v1: not needed with events. If V1 shows bounces also reach the
    mailbox as DSNs, they stay ordinary inbound mail.
-4. **Privacy:** `recipient` stored as HMAC in `email_events`; the plain address only travels in the signed
-   webhook to CRM (which already holds it). Event rows kept 90 days.
+4. **Privacy:** `recipient` stored only as HMAC in `email_events` (and stripped from `data`, with `subject`);
+   the plain address only travels in the signed webhook to CRM (which already holds it). Event rows kept
+   90 days; the retention cleanup only touches `email_events`.
 
-## Staging test plan (needs QA's go-ahead, because it sends real mail)
+## Staging test plan (QA go-ahead given on #22, with conditions)
+Conditions: send only to mailboxes/domains we control; for step 2 that domain's Email Routing has **no
+catch-all** (or the "nonexistent" address won't hard-bounce); the **staging sending domain only** (nothing from
+`outreach.` or the apex); exactly these 3 sends; ids and redacted headers recorded; the staging
+queue/subscription/DNS listed for QA **before** creation; production's only after the results are reviewed.
+
 1. Send one message from the staging sending domain to a mailbox we own → `delivered` event; compare
    `providerMessageId`, the event `messageId` and the received `Message-ID` header (answers V1).
 2. Send one message to a nonexistent address at a domain we control (no third-party reputation impact) →
@@ -76,3 +88,6 @@ Complaints can't be triggered safely; the consumer path is covered by a unit tes
 3. A hard bounce for an API send produces one V2-signed `message.bounced` webhook with the original `messageId`.
 4. A late `delivered` after a terminal `bounced` doesn't change the stored state.
 5. Staging steps 1–3 are recorded (ids, headers redacted of addresses) before production.
+6. A stored `email_events.data` contains neither the recipient address nor the subject.
+7. An event whose `eventTimestamp` is older than the latest applied one for that `messageId` changes nothing.
+8. No Worker other than mailflare is bound to `mailflare-email-events` (checked in every wrangler config).
