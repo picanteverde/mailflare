@@ -23,24 +23,31 @@ staging first, like the access rework.
 CRM must send RFC 8058 one-click unsubscribe. Add an optional `headers` object accepting **only**:
 `List-Unsubscribe`, `List-Unsubscribe-Post` (value exactly `List-Unsubscribe=One-Click`), `List-Id`,
 `Feedback-ID`. Any other name → 400 `header_not_allowed` (never silently dropped). Values: no CR/LF
-(header injection), ≤ 1,000 chars, `List-Unsubscribe` must contain an `https:` URL. The existing
-identity-header block in `sendEmail` stays.
+(header injection), ≤ 1,000 chars, `List-Unsubscribe` must contain an `https:` URL (a `mailto:` may be added alongside, never alone). Names
+are matched **case-insensitively** and duplicates are rejected (400 `duplicate_header`);
+`List-Unsubscribe-Post` must be the exact literal. The existing identity-header block in `sendEmail` stays.
 
 ### M2. Richer send response + idempotency
 - Return `{ messageId, providerMessageId, threadId }` (both are already stored, `send.ts:234-235`).
-- Accept `Idempotency-Key` (≤ 100 chars, per key, kept 24 h): a repeat returns the first response and sends
-  nothing. CRM retries after timeouts must never double-send.
+- Accept `Idempotency-Key` (≤ 100 chars, per key, kept 24 h) stored with a **hash of the request body**: a
+  repeat with the same body returns the first response and sends nothing; the same key with a different
+  body → 409 `idempotency_mismatch` (never the stale first response). CRM retries after timeouts must never
+  double-send.
 
 ### M3. Per-key send caps (backstop)
 CRM enforces its own warm-up caps; mailflare adds a hard backstop per key: `dailyCap` (default 50, set
-when the key is created) and 10 sends/min. Over cap → 429 `send_cap_reached` with `Retry-After`. A bug in
+when the key is created) and 10 sends/min. The cap counts per **UTC day per key**; only an admin can raise
+it, from the admin UI, with an audit entry — never with the key itself. Over cap → 429 `send_cap_reached` with `Retry-After`. A bug in
 CRM can then never blast the outreach domain.
 
 ### M4. Replay-safe webhook signatures
 Today the HMAC covers only the body, so a captured delivery can be replayed. Add
 `X-Email-Platform-Timestamp` (unix seconds) and sign `"{timestamp}.{rawBody}"` in a new
 `X-Email-Platform-Signature-V2`; keep the old header during a transition. Receivers (CRM) reject a
-timestamp older than 300 s and dedupe on `X-Email-Platform-Delivery`. Document the verification snippet.
+timestamp older than 300 s and dedupe on `X-Email-Platform-Delivery`. **Every retry is re-signed with a
+fresh timestamp** (otherwise a retry after 300 s fails verification by design). Receivers compare
+signatures with a timing-safe compare. V1 gets an end date in the changelog; CRM accepts **V2 only** from
+day one. Document the verification snippet.
 
 ### M5. Webhook scope and payloads
 - **Mailbox filter:** today webhooks are per user and only the primary admin can create them. Add an optional
@@ -49,12 +56,16 @@ timestamp older than 300 s and dedupe on `X-Email-Platform-Delivery`. Document t
 - **Payloads:** `message.inbound` adds `inReplyTo`, `references`, `mailboxId`; `message.outbound` adds
   `threadId`, `mailboxId`, `subject`. Bodies are **not** pushed: CRM fetches a reply with its `read`-scoped,
   mailbox-bound key (M6).
-- Webhook URLs: `https` only, no IP literals or private ranges, no redirects followed (SSRF).
+- Webhook URLs: `https` only, no IP literals or private ranges, no redirects followed (SSRF), and never
+  mailflare's own hosts (`mail.picanteverde.com`, the staging host), so it can't loop on itself or reach
+  internal routes. The host is resolved and checked **at save and again at every delivery** (no DNS
+  rebinding through a hostname that later moves).
 
 ### M6. Read one message by key
 Add `GET /api/v1/messages/{id}` (`read` scope, key's mailboxes only, 404 otherwise) returning headers,
 `text`, and the **DOMPurify-sanitized** `html` the webmail already produces. CRM shows text by default and
-the sanitized HTML only in its sandboxed, CSP-locked iframe (CRM spec 04).
+the sanitized HTML only in its sandboxed, CSP-locked iframe (CRM spec 04). Never raw HTML or attachments
+on this endpoint in v1.
 
 ### M7. Bounces and complaints (needs investigation first)
 Nothing in mailflare handles bounces or complaints today; `message.failed` is only a send-time error, and an
@@ -88,4 +99,11 @@ wanted), sending from `info@`.
 4. A webhook delivery replayed after 300 s fails CRM verification; the V2 signature covers the timestamp.
 5. A mailbox-filtered webhook receives no events for other mailboxes.
 6. `GET /api/v1/messages/{id}` for a message in another mailbox → 404.
-7. M7 investigation result is written up before any bounce code is merged.
+7. M7 investigation result is written up and reviewed by QA before any bounce code is merged.
+8. Header names differing only in case (`list-unsubscribe` twice) → 400 `duplicate_header`; a
+   `List-Unsubscribe` with only `mailto:` → 400.
+9. The same `Idempotency-Key` with a different body → 409 `idempotency_mismatch`, nothing sent.
+10. A key cannot raise its own `dailyCap`; an admin raise writes an audit entry.
+11. A delivery retried after 10 minutes carries a fresh timestamp and verifies.
+12. A webhook URL on `mail.picanteverde.com`, or a hostname that resolves to a private IP at delivery time,
+    is refused.
