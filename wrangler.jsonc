@@ -140,7 +140,10 @@
 				{ "name": "AGENT_RATE_LIMIT", "namespace_id": "2102", "simple": { "limit": 120, "period": 60 } },
 			],
 			// No real outbound mail: the binding can only deliver to this one verified address.
-			"send_email": [{ "name": "EMAIL", "destination_address": "picanteverde@gmail.com" }],
+			// M7 staging test (docs/picanteverde-m7-bounces.md): staging may send ONLY to these two addresses.
+			// m7-test@ lands in production mailflare via the zone catch-all (picanteverde reads its Message-ID);
+			// m7-nx.picanteverde.app has no DNS records (NXDOMAIN) so it hard-bounces. Nothing else is reachable.
+			"send_email": [{ "name": "EMAIL", "allowed_destination_addresses": ["m7-test@picanteverde.app", "bounce-test@m7-nx.picanteverde.app"] }],
 			"d1_databases": [{
 				"binding": "DB",
 				"database_name": "mailflare-staging",
